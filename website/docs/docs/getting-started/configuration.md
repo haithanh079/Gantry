@@ -23,6 +23,9 @@ CLI flags  >  Environment variables  >  gantry.yaml  >  Built-in defaults
 | `GANTRY_JWT_SECRET` | *(auto-generated)* | JWT signing secret (HMAC-SHA256) |
 | `GANTRY_DATA_DIR` | `./data` | Directory for SQLite DB and encryption key |
 | `GANTRY_ENCRYPTION_KEY` | *(auto-generated)* | AES-256-GCM key for encrypting plugin configs |
+| `GANTRY_INSECURE_ALLOW` | `false` | Skip production security validation (not for real deployments) |
+| `GANTRY_METRICS_TOKEN` | *(unset)* | Bearer token required to scrape `/metrics` when set |
+| `GANTRY_DEV_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed CORS origins when `GANTRY_DEV=true` |
 
 ### Example
 

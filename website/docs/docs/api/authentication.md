@@ -6,7 +6,7 @@ description: JWTs, session cookies, API keys, and role-based access control.
 
 # Authentication
 
-Gantry uses JWTs for user sessions and API keys for programmatic access. Browser logins also set a same-origin HttpOnly session cookie, so the SPA can authenticate regular API calls and WebSocket connections without exposing the token to JavaScript.
+Gantry uses JWTs for user sessions and API keys for programmatic access. Browser logins set a same-origin **HttpOnly** `gantry_session` cookie. The web UI sends `credentials: 'include'` on API requests and does **not** persist JWTs in `localStorage` — reducing XSS token theft risk. Programmatic clients (CLI, CI) continue to use `Authorization: Bearer` with a JWT or API key.
 
 ## User Login
 

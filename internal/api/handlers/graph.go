@@ -15,6 +15,10 @@ func (h *Handlers) GetEntityGraph(w http.ResponseWriter, r *http.Request) {
 		namespace = "default"
 	}
 
+	if !h.RequireAccess(w, r, "entity", kind, "read") {
+		return
+	}
+
 	graph, err := h.DB.GetEntityGraph(r.Context(), kind, namespace, name)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())

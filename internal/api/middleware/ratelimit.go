@@ -75,16 +75,32 @@ func (rl *rateLimiter) cleanup() {
 // defaultLimiter allows 60 requests/second per IP with a burst of 120.
 var defaultLimiter = newRateLimiter(60, 120)
 
+// loginLimiter allows ~10 login attempts per minute per IP with a burst of 5.
+var loginLimiter = newRateLimiter(10.0/60.0, 5)
+
+// RateLimit returns middleware that enforces per-IP rate limiting.
+// Requests that exceed the limit receive HTTP 429 Too Many Requests.
+func clientIP(r *http.Request) string {
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		return realIP
+	}
+	return r.RemoteAddr
+}
+
 // RateLimit returns middleware that enforces per-IP rate limiting.
 // Requests that exceed the limit receive HTTP 429 Too Many Requests.
 func RateLimit(next http.Handler) http.Handler {
+	return rateLimitWith(defaultLimiter, next)
+}
+
+// LoginRateLimit applies a stricter per-IP limit for credential login attempts.
+func LoginRateLimit(next http.Handler) http.Handler {
+	return rateLimitWith(loginLimiter, next)
+}
+
+func rateLimitWith(rl *rateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		// Use X-Real-IP if set by a reverse proxy (already handled by chimiddleware.RealIP).
-		if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-			ip = realIP
-		}
-		if !defaultLimiter.allow(ip) {
+		if !rl.allow(clientIP(r)) {
 			http.Error(w, `{"error":"rate limit exceeded"}`, http.StatusTooManyRequests)
 			return
 		}

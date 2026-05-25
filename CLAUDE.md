@@ -107,9 +107,13 @@ Built-in kinds: Service, API, Infrastructure, Team, Environment, Documentation, 
 
 ## Config
 
-Env vars: `GANTRY_PORT`, `GANTRY_DB`, `GANTRY_DEV`, `GANTRY_ADMIN_PASSWORD`, `GANTRY_JWT_SECRET`, `GANTRY_DATA_DIR`, `GANTRY_ENCRYPTION_KEY`. CLI flags override env vars. Default: port 8080, SQLite at `./data/gantry.db`, admin/changeme.
+Env vars: `GANTRY_PORT`, `GANTRY_DB`, `GANTRY_DEV`, `GANTRY_ADMIN_PASSWORD`, `GANTRY_JWT_SECRET`, `GANTRY_DATA_DIR`, `GANTRY_ENCRYPTION_KEY`, `GANTRY_INSECURE_ALLOW`, `GANTRY_METRICS_TOKEN`, `GANTRY_DEV_ORIGINS`. CLI flags override env vars. Default: port 8080, SQLite at `./data/gantry.db`, admin/changeme.
 
-`GANTRY_ENCRYPTION_KEY` — base64-encoded 32-byte key for AES-256-GCM encryption of plugin config secrets. If not set, secrets are stored unencrypted.
+Production (`GANTRY_DEV=false`) **fail-fast** unless `GANTRY_INSECURE_ALLOW=true`: bootstrap admin password must not be default, `GANTRY_JWT_SECRET` must be set explicitly, and encryption key must be configured or persisted in `data/encryption.key`.
+
+`GANTRY_ENCRYPTION_KEY` — any stable string (SHA-256 derived to 32 bytes) for AES-256-GCM plugin secrets. Auto-generated `encryption.key` in DataDir if unset.
+
+Security: SSRF guard on outbound webhooks/health-check proxy; RBAC permission rules enforced on entity/action APIs via `handlers.CanAccess`; login rate limit; optional `GANTRY_METRICS_TOKEN` on `/metrics`; SPA uses HttpOnly cookies (no JWT in localStorage).
 
 Config can also be loaded from a YAML file (same field names in camelCase).
 

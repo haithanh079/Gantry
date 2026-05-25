@@ -347,12 +347,39 @@ func TestWebSocketHandshakeAcceptsSessionCookieAuth(t *testing.T) {
 	}
 }
 
-func TestHealthCheckProxyAllowsLoopbackTargets(t *testing.T) {
-	// Spin up a local server on loopback to act as the health endpoint.
+func TestEntityWriteDeniedByPermissionRule(t *testing.T) {
+	env := newTestServerEnv(t)
+	user, token := env.createUser(t, "dev-deny", "developer")
+
+	ctx := context.Background()
+	rule := &db.PermissionRule{
+		SubjectType:    "user",
+		SubjectID:      user.ID,
+		ResourceType:   "entity",
+		ResourceFilter: "Service",
+		Action:         "write",
+		Effect:         "deny",
+	}
+	if err := env.db.CreatePermissionRule(ctx, rule); err != nil {
+		t.Fatalf("CreatePermissionRule: %v", err)
+	}
+
+	body := `{"kind":"Service","metadata":{"name":"denied-svc"},"spec":{"type":"backend","lifecycle":"production"}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/entities", bytes.NewBufferString(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	env.server.Router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHealthCheckProxyRejectsLoopbackTargets(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"UP"}`))
 	}))
 	defer upstream.Close()
 
@@ -364,22 +391,7 @@ func TestHealthCheckProxyAllowsLoopbackTargets(t *testing.T) {
 	rec := httptest.NewRecorder()
 	env.server.Router().ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var result map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if result["reachable"] != true {
-		t.Fatalf("expected reachable=true, got %v", result["reachable"])
-	}
-	if result["statusCode"] != float64(200) {
-		t.Fatalf("expected statusCode=200, got %v", result["statusCode"])
-	}
-	body, _ := result["body"].(string)
-	if body != `{"status":"UP"}` {
-		t.Fatalf("expected upstream body, got %q", body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rec.Code, rec.Body.String())
 	}
 }

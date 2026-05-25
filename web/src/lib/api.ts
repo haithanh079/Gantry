@@ -4,7 +4,12 @@ import { encodePathSegment } from './utils';
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
 export const PLUGINS_UPDATED_EVENT = 'gantry:plugins-updated';
 
-let authToken: string | null = localStorage.getItem('gantry_token');
+// In-memory bearer token for optional CLI-style overrides; primary SPA auth uses HttpOnly cookies.
+let authToken: string | null = null;
+
+if (typeof localStorage !== 'undefined') {
+  localStorage.removeItem('gantry_token');
+}
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -16,11 +21,12 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers: headers(),
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
     signal,
   });
   if (!res.ok) {
-    if (res.status === 401 && authToken) {
+    if (res.status === 401) {
       setToken(null);
       window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
     }
@@ -33,11 +39,6 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
 
 export function setToken(token: string | null) {
   authToken = token;
-  if (token) {
-    localStorage.setItem('gantry_token', token);
-  } else {
-    localStorage.removeItem('gantry_token');
-  }
 }
 
 export function getToken(): string | null {

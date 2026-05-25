@@ -25,5 +25,7 @@ func (h *Handlers) Search(w http.ResponseWriter, r *http.Request) {
 		results = make([]*search.Result, 0)
 	}
 
+	results = h.FilterSearchResultsByAccess(r.Context(), results)
+
 	writeJSON(w, http.StatusOK, results)
 }

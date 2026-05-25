@@ -81,6 +81,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 		cfg.AdminPassword = adminPw
 	}
 
+	if cfg.DevMode && len(cfg.DevOrigins) == 0 {
+		cfg.DevOrigins = config.DefaultDevOrigins()
+	}
+
 	tlsCert, _ := cmd.Flags().GetString("tls-cert")
 	tlsKey, _ := cmd.Flags().GetString("tls-key")
 
@@ -98,6 +102,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 	if err := database.InitializeBootstrapAdminPassword(context.Background(), authService, cfg.AdminPassword); err != nil {
 		return fmt.Errorf("initializing bootstrap admin password: %w", err)
+	}
+
+	adminUser, err := database.GetUserByID(context.Background(), db.BootstrapAdminUserID)
+	if err != nil {
+		return fmt.Errorf("loading bootstrap admin user: %w", err)
+	}
+	if err := config.ValidateProduction(cfg, adminUser.PasswordHash); err != nil {
+		return err
+	}
+	if !cfg.DevMode && !cfg.InsecureAllow && cfg.MetricsToken == "" {
+		fmt.Fprintln(os.Stderr, "warning: GANTRY_METRICS_TOKEN is not set; /metrics is publicly accessible")
 	}
 
 	// Seed default groups (Admins, Developers, Platform Engineers).

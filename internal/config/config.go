@@ -74,6 +74,7 @@ func applyFileConfig(cfg *Config, fc *FileConfig) {
 	}
 	if fc.JWTSecret != "" {
 		cfg.JWTSecret = fc.JWTSecret
+		cfg.JWTSecretExplicit = true
 	}
 	if fc.EncryptionKey != "" {
 		cfg.EncryptionKey = fc.EncryptionKey
@@ -82,14 +83,18 @@ func applyFileConfig(cfg *Config, fc *FileConfig) {
 
 // Config holds all Gantry configuration.
 type Config struct {
-	Port          int    // HTTP listen port
-	DBType        string // "sqlite" or "postgres"
-	DBDSN         string // connection string or file path
-	DevMode       bool   // development mode (verbose logging, CORS *, etc.)
-	AdminPassword string // initial admin password (only used on first run)
-	JWTSecret     string // secret for signing JWT tokens
-	DataDir       string // directory for SQLite database and other data
-	EncryptionKey string // key for AES-256-GCM encryption of DB secrets (GANTRY_ENCRYPTION_KEY)
+	Port               int    // HTTP listen port
+	DBType             string // "sqlite" or "postgres"
+	DBDSN              string // connection string or file path
+	DevMode            bool   // development mode (verbose logging, CORS *, etc.)
+	AdminPassword      string // initial admin password (only used on first run)
+	JWTSecret          string // secret for signing JWT tokens
+	JWTSecretExplicit  bool   // true when JWTSecret was set via env/file/flag (not auto-generated)
+	DataDir            string // directory for SQLite database and other data
+	EncryptionKey      string // key for AES-256-GCM encryption of DB secrets (GANTRY_ENCRYPTION_KEY)
+	InsecureAllow      bool   // skip production security validation (GANTRY_INSECURE_ALLOW)
+	MetricsToken       string // optional bearer token for /metrics (GANTRY_METRICS_TOKEN)
+	DevOrigins         []string // allowed CORS origins in dev mode (GANTRY_DEV_ORIGINS)
 }
 
 // Default returns a Config with sensible defaults for local development.
@@ -125,6 +130,9 @@ func LoadWithFile(configPath string) *Config {
 
 	applyEnv(cfg)
 	cfg.normalize()
+	if cfg.DevMode && len(cfg.DevOrigins) == 0 {
+		cfg.DevOrigins = DefaultDevOrigins()
+	}
 	return cfg
 }
 
@@ -161,11 +169,41 @@ func applyEnv(cfg *Config) {
 
 	if v := os.Getenv("GANTRY_JWT_SECRET"); v != "" {
 		cfg.JWTSecret = v
+		cfg.JWTSecretExplicit = true
 	}
 
 	if v := os.Getenv("GANTRY_ENCRYPTION_KEY"); v != "" {
 		cfg.EncryptionKey = v
 	}
+
+	if v := os.Getenv("GANTRY_INSECURE_ALLOW"); v != "" {
+		v = strings.ToLower(v)
+		cfg.InsecureAllow = v == "true" || v == "1" || v == "yes"
+	}
+
+	if v := os.Getenv("GANTRY_METRICS_TOKEN"); v != "" {
+		cfg.MetricsToken = v
+	}
+
+	if v := os.Getenv("GANTRY_DEV_ORIGINS"); v != "" {
+		cfg.DevOrigins = parseDevOrigins(v)
+	}
+}
+
+func parseDevOrigins(raw string) []string {
+	var origins []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			origins = append(origins, part)
+		}
+	}
+	return origins
+}
+
+// DefaultDevOrigins returns the default Vite dev server origins.
+func DefaultDevOrigins() []string {
+	return []string{"http://localhost:5173", "http://127.0.0.1:5173"}
 }
 
 // normalize fills in derived values and generates secrets where needed.

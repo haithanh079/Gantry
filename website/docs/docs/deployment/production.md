@@ -13,12 +13,37 @@ Before going live, complete every item on this list:
 ### Security
 
 - [ ] **Change `GANTRY_ADMIN_PASSWORD`** — Never use `changeme` in production
-- [ ] **Set `GANTRY_JWT_SECRET`** — Use a stable 64-character random hex string. If unset, all sessions invalidate on restart.
-- [ ] **Set `GANTRY_ENCRYPTION_KEY`** — Required for stable plugin credential encryption
+- [ ] **Set `GANTRY_JWT_SECRET`** — Use a stable 64-character random hex string. If unset, the server refuses to start in production.
+- [ ] **Set `GANTRY_ENCRYPTION_KEY`** — Or ensure `data/encryption.key` already exists from a prior run. Required for stable plugin credential encryption.
 - [ ] **Enable HTTPS** — Use a reverse proxy (Nginx, Caddy, Traefik) or set `--tls-cert`/`--tls-key`
-- [ ] **Disable dev mode** — Ensure `GANTRY_DEV=false` (the default)
+- [ ] **Disable dev mode** — Ensure `GANTRY_DEV=false` (the default). Production startup fails if dev mode is on.
+- [ ] **Set `GANTRY_METRICS_TOKEN`** — Protects `/metrics` with Bearer auth (recommended)
 - [ ] **Restrict admin access** — Create dedicated user accounts; don't share the `admin` account
-- [ ] **Use API keys for automation** — Never use passwords in CI/CD; create a `developer`-role API key
+- [ ] **Use API keys for automation** — Never use passwords in CI/CD; create a down-scoped API key
+- [ ] **Review RBAC permission rules** — Deny/allow rules are enforced on the API (not UI-only)
+- [ ] **Avoid `GANTRY_INSECURE_ALLOW`** — Only for intentionally insecure dev/staging; skips production validation
+
+### Production startup validation
+
+When `GANTRY_DEV=false` and `GANTRY_INSECURE_ALLOW` is not set, Gantry **refuses to start** unless:
+
+| Requirement | Why |
+|---|---|
+| Bootstrap admin password changed from default | Prevents `changeme` on a public deployment |
+| `GANTRY_JWT_SECRET` set explicitly | Sessions must survive restarts |
+| `GANTRY_ENCRYPTION_KEY` or existing `encryption.key` | Plugin secrets remain decryptable after redeploy |
+| `GANTRY_DEV` is false | Dev mode enables permissive CORS |
+
+Set `GANTRY_INSECURE_ALLOW=true` only when you deliberately accept these risks (local experiments, not production).
+
+### Built-in protections
+
+| Feature | Behavior |
+|---|---|
+| SSRF guard | Webhook actions and `/api/v1/health-check` cannot target private/loopback IPs |
+| Login rate limit | ~10 attempts/minute per IP on `POST /auth/login` |
+| RBAC rules | Fine-grained allow/deny rules apply to entity and action APIs |
+| Cookie-first SPA | Browser UI uses HttpOnly `gantry_session`; JWT is not stored in `localStorage` |
 
 ### Data
 
@@ -129,6 +154,7 @@ WantedBy=multi-user.target
 GANTRY_ADMIN_PASSWORD=my-secure-password
 GANTRY_JWT_SECRET=64charrandombytes
 GANTRY_ENCRYPTION_KEY=64charrandombytes
+GANTRY_METRICS_TOKEN=random-metrics-scrape-token
 ```
 
 ```bash
@@ -166,6 +192,8 @@ gantry_http_requests_total{method="POST",status="201"} 87
 
 ### Prometheus Scrape Config
 
+When `GANTRY_METRICS_TOKEN` is set, pass it as a Bearer token:
+
 ```yaml
 # prometheus.yml
 scrape_configs:
@@ -173,7 +201,12 @@ scrape_configs:
     static_configs:
       - targets: ['gantry.your-org.com:8080']
     metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials: "<GANTRY_METRICS_TOKEN>"
 ```
+
+Alternatively, use `metrics_path: /metrics?token=<GANTRY_METRICS_TOKEN>` (less ideal — token may appear in logs).
 
 ## Backup Strategy
 

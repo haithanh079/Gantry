@@ -73,6 +73,10 @@ func registerWriteTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 			return nil, nil, fmt.Errorf("validation failed: %w", err)
 		}
 
+		if !h.CanAccess(ctx, "entity", e.Kind, "write") {
+			return nil, nil, fmt.Errorf("insufficient permissions to write %s entities", e.Kind)
+		}
+
 		if err := h.DB.CreateEntity(ctx, &e); err != nil {
 			if errors.Is(err, entity.ErrEntityAlreadyExists) {
 				return nil, nil, fmt.Errorf("entity %s/%s already exists in namespace %q", e.Kind, e.Metadata.Name, e.Metadata.Namespace)
@@ -110,6 +114,10 @@ func registerWriteTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 
 		if err := h.Validator.Validate(&e); err != nil {
 			return nil, nil, fmt.Errorf("validation failed: %w", err)
+		}
+
+		if !h.CanAccess(ctx, "entity", e.Kind, "write") {
+			return nil, nil, fmt.Errorf("insufficient permissions to write %s entities", e.Kind)
 		}
 
 		ns := e.Metadata.Namespace

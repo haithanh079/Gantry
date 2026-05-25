@@ -18,6 +18,7 @@ import (
 	"github.com/go2engle/gantry/internal/db"
 	"github.com/go2engle/gantry/internal/entity"
 	"github.com/go2engle/gantry/internal/events"
+	"github.com/go2engle/gantry/internal/security"
 )
 
 // Manager holds shared HTTP client and event bus, and dispatches action runs
@@ -107,6 +108,10 @@ func (m *Manager) runWebhook(action *entity.Entity, run *db.ActionRun) (string, 
 	}
 	if rawURL == "" {
 		return "", fmt.Errorf("webhook action %q has no url in spec or spec.config", action.Metadata.Name)
+	}
+
+	if _, err := security.ValidateOutboundURL(rawURL); err != nil {
+		return "", fmt.Errorf("webhook url not allowed: %w", err)
 	}
 
 	method := "POST"

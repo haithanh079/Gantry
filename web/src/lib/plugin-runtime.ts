@@ -142,7 +142,7 @@ export async function loadPlugins(): Promise<void> {
     const token = getToken();
     const reqHeaders: Record<string, string> = {};
     if (token) reqHeaders.Authorization = `Bearer ${token}`;
-    const res = await fetch('/api/v1/plugins', { headers: reqHeaders });
+    const res = await fetch('/api/v1/plugins', { headers: reqHeaders, credentials: 'include' });
     if (!res.ok) return;
 
     const plugins: Array<{ name: string; enabled: boolean; manifest?: { bundleUrl?: string } }> =

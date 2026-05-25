@@ -47,8 +47,12 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 
 	// CORS middleware.
 	if cfg.DevMode {
+		devOrigins := cfg.DevOrigins
+		if len(devOrigins) == 0 {
+			devOrigins = config.DefaultDevOrigins()
+		}
 		r.Use(cors.Handler(cors.Options{
-			AllowedOrigins:   []string{"*"},
+			AllowedOrigins:   devOrigins,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version"},
 			ExposedHeaders:   []string{"Link", "Mcp-Session-Id"},
@@ -83,22 +87,23 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 	r.Get("/healthz", h.Healthz)
 	r.Get("/readyz", h.Readyz)
 
-	// Prometheus metrics (public -- scrape targets typically don't send auth).
-	r.Handle("/metrics", metrics.Handler(func() {
+	// Prometheus metrics (optional bearer auth via GANTRY_METRICS_TOKEN).
+	metricsHandler := metrics.Handler(func() {
 		counts, err := database.CountEntitiesByKind(context.Background())
 		if err == nil {
 			for kind, count := range counts {
 				metrics.EntitiesTotal.Set(map[string]string{"kind": kind}, count)
 			}
 		}
-	}))
+	})
+	r.Handle("/metrics", middleware.MetricsAuth(cfg.MetricsToken)(metricsHandler))
 
 	// API v1 routes.
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(middleware.RateLimit)
 		// Public endpoints.
 		api.Get("/version", h.GetVersion)
-		api.Post("/auth/login", h.Login)
+		api.With(middleware.LoginRateLimit).Post("/auth/login", h.Login)
 		// GitHub and Microsoft Azure SSO — public; used by login page and OAuth redirect flow.
 		api.Get("/auth/github/config", h.GetGitHubSSOConfig)
 		api.Get("/auth/github", h.GitHubOAuthBegin)

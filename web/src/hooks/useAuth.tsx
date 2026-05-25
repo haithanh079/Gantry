@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { api, setToken, getToken, AUTH_UNAUTHORIZED_EVENT } from '../lib/api';
+import { api, setToken, AUTH_UNAUTHORIZED_EVENT } from '../lib/api';
 import type { User } from '../lib/types';
 
 interface AuthContextValue {
@@ -24,28 +24,16 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setTokenState] = useState<string | null>(getToken());
+  const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const existingToken = getToken();
     api
       .getMe()
       .then((me) => {
         setUser(me);
-        setTokenState(existingToken);
       })
-      .catch(async () => {
-        if (existingToken) {
-          setToken(null);
-          setTokenState(null);
-          try {
-            const me = await api.getMe();
-            setUser(me);
-            return;
-          } catch {
-          }
-        }
+      .catch(() => {
         setUser(null);
       })
       .finally(() => setLoading(false));
@@ -63,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await api.login(username, password);
-    setToken(result.token);
-    setTokenState(result.token);
+    setToken(null);
+    setTokenState(null);
     if (result.user.permissions && result.user.effectiveRole) {
       setUser(result.user);
       return;

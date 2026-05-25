@@ -72,6 +72,10 @@ func (h *Handlers) ExecuteAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.RequireAccess(w, r, "action", name, "execute") {
+		return
+	}
+
 	// Serialize inputs for storage.
 	inputsJSON := ""
 	if req.Inputs != nil {

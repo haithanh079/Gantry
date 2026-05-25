@@ -3,8 +3,9 @@ package handlers
 import (
 	"io"
 	"net/http"
-	"net/url"
 	"time"
+
+	"github.com/go2engle/gantry/internal/security"
 )
 
 // HealthCheckProxy fetches an external health-check URL on behalf of the
@@ -17,13 +18,9 @@ func (h *Handlers) HealthCheckProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parsed, err := url.Parse(target)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		writeError(w, http.StatusBadRequest, "url must be an absolute http or https URL")
-		return
-	}
-	if parsed.User != nil {
-		writeError(w, http.StatusBadRequest, "url must not contain userinfo")
+	parsed, err := security.ValidateOutboundURL(target)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -35,7 +32,7 @@ func (h *Handlers) HealthCheckProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid url")
 		return

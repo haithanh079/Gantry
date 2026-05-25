@@ -194,4 +194,6 @@ golangci-lint run ./...     # lint Go
 
 ## Config
 
-Env vars: `GANTRY_PORT`, `GANTRY_DB`, `GANTRY_DEV`, `GANTRY_ADMIN_PASSWORD`, `GANTRY_JWT_SECRET`, `GANTRY_DATA_DIR`, `GANTRY_ENCRYPTION_KEY`. Also configurable via YAML file with camelCase keys.
+Env vars: `GANTRY_PORT`, `GANTRY_DB`, `GANTRY_DEV`, `GANTRY_ADMIN_PASSWORD`, `GANTRY_JWT_SECRET`, `GANTRY_DATA_DIR`, `GANTRY_ENCRYPTION_KEY`, `GANTRY_INSECURE_ALLOW`, `GANTRY_METRICS_TOKEN`, `GANTRY_DEV_ORIGINS`. Also configurable via YAML file with camelCase keys.
+
+Production fail-fast (unless `GANTRY_INSECURE_ALLOW=true`): non-default admin password, explicit JWT secret, encryption key or persisted `encryption.key`, `GANTRY_DEV=false`. SSRF guard on webhooks/health-check; RBAC rules enforced on APIs; cookie-first SPA auth.

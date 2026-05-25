@@ -71,6 +71,7 @@ func (h *Handlers) ListEntities(w http.ResponseWriter, r *http.Request) {
 
 	// Apply optional query filters that the DB layer does not handle.
 	filtered := filterEntities(entities, r)
+	filtered = h.FilterEntitiesByAccess(r.Context(), filtered)
 	if filtered == nil {
 		filtered = []*entity.Entity{}
 	}
@@ -91,6 +92,7 @@ func (h *Handlers) ListEntitiesByKind(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filtered := filterEntities(entities, r)
+	filtered = h.FilterEntitiesByAccess(r.Context(), filtered)
 	if filtered == nil {
 		filtered = []*entity.Entity{}
 	}
@@ -106,6 +108,10 @@ func (h *Handlers) GetEntity(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	if namespace == "" {
 		namespace = entity.DefaultNamespace
+	}
+
+	if !h.RequireAccess(w, r, "entity", kind, "read") {
+		return
 	}
 
 	e, err := h.DB.GetEntity(r.Context(), kind, namespace, name)
@@ -129,6 +135,10 @@ func (h *Handlers) ListEntityDocumentation(w http.ResponseWriter, r *http.Reques
 	namespace := r.URL.Query().Get("namespace")
 	if namespace == "" {
 		namespace = entity.DefaultNamespace
+	}
+
+	if !h.RequireAccess(w, r, "entity", kind, "read") {
+		return
 	}
 
 	if _, err := h.DB.GetEntity(r.Context(), kind, namespace, name); err != nil {
@@ -165,6 +175,10 @@ func (h *Handlers) CreateEntity(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims != nil {
 		e.Metadata.CreatedBy = claims.Username
+	}
+
+	if !h.RequireAccess(w, r, "entity", e.Kind, "write") {
+		return
 	}
 
 	// Validate against JSON Schema.
@@ -252,6 +266,10 @@ func (h *Handlers) UpdateEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.RequireAccess(w, r, "entity", kind, "write") {
+		return
+	}
+
 	// Capture before state for audit log.
 	var beforeState string
 	if prev, err := h.DB.GetEntity(r.Context(), kind, oldNamespace, oldName); err == nil {
@@ -317,6 +335,10 @@ func (h *Handlers) DeleteEntity(w http.ResponseWriter, r *http.Request) {
 	namespace := r.URL.Query().Get("namespace")
 	if namespace == "" {
 		namespace = entity.DefaultNamespace
+	}
+
+	if !h.RequireAccess(w, r, "entity", kind, "delete") {
+		return
 	}
 
 	// Capture before state for audit log.

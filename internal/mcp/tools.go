@@ -47,6 +47,7 @@ func registerTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 		if results == nil {
 			results = []*search.Result{}
 		}
+		results = h.FilterSearchResultsByAccess(ctx, results)
 		// MCP structuredContent must be an object, not an array — wrap the slice.
 		return jsonResult(map[string]any{"results": results, "count": len(results)})
 	})
@@ -58,6 +59,9 @@ func registerTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 		ns := in.Namespace
 		if ns == "" {
 			ns = entity.DefaultNamespace
+		}
+		if !h.CanAccess(ctx, "entity", in.Kind, "read") {
+			return nil, nil, fmt.Errorf("insufficient permissions to read %s entities", in.Kind)
 		}
 		e, err := h.DB.GetEntity(ctx, in.Kind, ns, in.Name)
 		if err != nil {
@@ -78,6 +82,7 @@ func registerTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 			return nil, nil, fmt.Errorf("list entities failed: %w", err)
 		}
 		filtered := filterEntities(entities, in.Owner, in.Tag)
+		filtered = h.FilterEntitiesByAccess(ctx, filtered)
 		// MCP structuredContent must be an object, not an array — wrap the slice.
 		return jsonResult(map[string]any{"entities": filtered, "count": len(filtered)})
 	})
@@ -89,6 +94,9 @@ func registerTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 		ns := in.Namespace
 		if ns == "" {
 			ns = entity.DefaultNamespace
+		}
+		if !h.CanAccess(ctx, "entity", in.Kind, "read") {
+			return nil, nil, fmt.Errorf("insufficient permissions to read %s entities", in.Kind)
 		}
 		graph, err := h.DB.GetEntityGraph(ctx, in.Kind, ns, in.Name)
 		if err != nil {

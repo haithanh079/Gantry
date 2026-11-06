@@ -174,6 +174,13 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 			// Relationship graph.
 			protected.Get("/graph/{kind}/{name}", h.GetEntityGraph)
 
+			// Landscape (Plan A): catalog map, inventory, data flows, blast radius, findings.
+			protected.Get("/landscape/graph", h.GetLandscapeGraph)
+			protected.Get("/landscape/inventory", h.GetLandscapeInventory)
+			protected.Get("/landscape/dataflows", h.GetLandscapeDataFlows)
+			protected.Get("/landscape/blast-radius/{kind}/{ns}/{name}", h.GetLandscapeBlastRadius)
+			protected.Get("/landscape/findings", h.GetLandscapeFindings)
+
 			// MCP endpoint for local AI agents. Streamable HTTP transport handles
 			// POST (client messages), GET (optional SSE streaming), and DELETE
 			// (session close) on a single path, so Handle covers all methods.

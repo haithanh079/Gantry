@@ -14,6 +14,12 @@
   --gantry-success: #34c759;
   --gantry-warning: #ff9500;
   --gantry-danger: #ff3b30;
+  --gantry-mark-1: #007aff;
+  --gantry-mark-2: #af52de;
+  --gantry-mark-3: #ff9500;
+  --gantry-mark-4: #34c759;
+  --gantry-mark-5: #ff2d55;
+  --gantry-mark-6: #32ade6;
 }
 
 html {
@@ -32,6 +38,12 @@ html {
   --gantry-success: #30d158;
   --gantry-warning: #ffcc00;
   --gantry-danger: #ff453a;
+  --gantry-mark-1: #0a84ff;
+  --gantry-mark-2: #bf5af2;
+  --gantry-mark-3: #ff9f0a;
+  --gantry-mark-4: #30d158;
+  --gantry-mark-5: #ff375f;
+  --gantry-mark-6: #64d2ff;
 }
 
 html.dark {
@@ -68,6 +80,12 @@ body {
   *::-webkit-scrollbar-thumb:hover {
     background: var(--gantry-border);
   }
+}
+
+.react-flow__edge-path,
+.react-flow__connection-path,
+.react-flow__edge-interaction {
+  fill: none;
 }
 
 @layer components {

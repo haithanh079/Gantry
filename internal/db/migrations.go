@@ -297,5 +297,17 @@ func allMigrations(dbType string) []string {
 		)
 	}
 
+	migrations = append(migrations, `CREATE TABLE IF NOT EXISTS landscape_findings (
+		id TEXT PRIMARY KEY,
+		rule TEXT NOT NULL,
+		category TEXT NOT NULL,
+		severity TEXT NOT NULL,
+		subject_ref TEXT NOT NULL,
+		details TEXT NOT NULL DEFAULT '{}',
+		first_seen TIMESTAMP NOT NULL,
+		last_seen TIMESTAMP NOT NULL,
+		status TEXT NOT NULL
+	)`)
+
 	return migrations
 }

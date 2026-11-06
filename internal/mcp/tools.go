@@ -106,6 +106,7 @@ func registerTools(srv *mcpsdk.Server, h *handlers.Handlers) {
 	})
 
 	registerWriteTools(srv, h)
+	registerLandscapeTools(srv, h)
 }
 
 func filterEntities(entities []*entity.Entity, owner, tag string) []*entity.Entity {

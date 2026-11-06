@@ -22,6 +22,17 @@ export function encodePathSegment(value: string): string {
   );
 }
 
+export function parseCatalogRef(id: string): { kind: string; namespace?: string; name: string } | null {
+  const parts = id.split('/').filter((part) => part.length > 0);
+  if (parts.length === 3) {
+    return { kind: parts[0], namespace: parts[1], name: parts[2] };
+  }
+  if (parts.length === 2) {
+    return { kind: parts[0], name: parts[1] };
+  }
+  return null;
+}
+
 export function catalogEntityPath(kind: string, name: string, namespace?: string): string {
   const namespaceSuffix = namespace && namespace !== 'default'
     ? `?namespace=${encodeURIComponent(namespace)}`

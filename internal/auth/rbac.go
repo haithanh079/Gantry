@@ -13,8 +13,8 @@ type RoleData struct {
 // on startup and refreshed after any role mutation.
 type roleStore struct {
 	mu          sync.RWMutex
-	hierarchy   map[string]int              // role name → level
-	permissions map[string]map[string]bool  // role name → action → allowed
+	hierarchy   map[string]int             // role name → level
+	permissions map[string]map[string]bool // role name → action → allowed
 }
 
 var globalStore = &roleStore{
@@ -116,7 +116,7 @@ func EffectiveRole(userRole string, groupRoles []string) string {
 type PermissionCheck struct {
 	SubjectType    string // "user" or "group"
 	SubjectID      string
-	ResourceType   string // "entity", "action", "plugin", "*"
+	ResourceType   string // "entity", "action", "plugin", "landscape", "observed", "*"
 	ResourceFilter string // kind, namespace, or ""
 	Action         string // "read", "write", "delete", "execute", "admin", "*"
 	Effect         string // "allow" or "deny"

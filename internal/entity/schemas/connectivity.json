@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Connectivity",
+  "description": "Connection between two networks",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["vpc-peering", "tgw-attachment", "privatelink", "psc", "vpn", "interconnect", "direct-connect", "cf-tunnel", "public-internet"]
+    },
+    "from": { "$ref": "#/$defs/ref" },
+    "to": { "$ref": "#/$defs/ref" },
+    "bidirectional": { "type": "boolean" },
+    "externalRefs": { "type": "array", "items": { "$ref": "#/$defs/externalRef" } }
+  },
+  "required": ["type", "from", "to"],
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "id"],
+      "properties": {
+        "source": { "type": "string", "enum": ["terraform", "aws", "gcp", "cloudflare", "manual"] },
+        "id": { "type": "string" },
+        "tfAddress": { "type": "string" },
+        "stateSource": { "type": "string" }
+      }
+    }
+  }
+}

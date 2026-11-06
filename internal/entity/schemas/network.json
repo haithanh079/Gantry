@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Network",
+  "description": "VPC, shared VPC, transit hub, edge, or external network",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "provider": { "type": "string", "enum": ["aws", "gcp", "cloudflare", "external", "on-prem"] },
+    "networkType": { "type": "string", "enum": ["vpc", "shared-vpc", "transit-hub", "edge", "external"] },
+    "cloudAccount": { "$ref": "#/$defs/ref" },
+    "region": { "type": "string" },
+    "cidrs": { "type": "array", "items": { "type": "string" } },
+    "externalRefs": { "type": "array", "items": { "$ref": "#/$defs/externalRef" } }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "id"],
+      "properties": {
+        "source": { "type": "string", "enum": ["terraform", "aws", "gcp", "cloudflare", "manual"] },
+        "id": { "type": "string" },
+        "tfAddress": { "type": "string" },
+        "stateSource": { "type": "string" }
+      }
+    }
+  }
+}

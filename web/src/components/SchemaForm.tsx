@@ -6,6 +6,7 @@ import EntityPicker from './EntityPicker';
 
 const ENTITY_KINDS = [
   'Service', 'API', 'Infrastructure', 'Team', 'Environment', 'Documentation', 'Action',
+  'Department', 'Project', 'CloudAccount', 'Network', 'Connectivity', 'Deployment', 'DataFlow', 'Highlight',
 ];
 
 function isDependsOnItem(schema: JsonSchema): boolean {

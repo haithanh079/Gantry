@@ -27,6 +27,17 @@
       },
       "description": "Team members"
     },
+    "department": {
+      "type": "object",
+      "description": "Department this team belongs to",
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["kind", "name"],
+      "additionalProperties": false
+    },
     "slackChannel": {
       "type": "string",
       "description": "Slack channel for the team (e.g., #platform-eng)"
@@ -73,6 +84,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]

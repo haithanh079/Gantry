@@ -24,6 +24,14 @@ var BuiltinKinds = []KindDefinition{
 	{Name: "Documentation", Plural: "documentation", Description: "Link to external documentation or runbook"},
 	{Name: "Flow", Plural: "flows", Description: "Interactive system flow diagram backed by catalog entities"},
 	{Name: "Action", Plural: "actions", Description: "Self-service workflow definition"},
+	{Name: "Department", Plural: "departments", Description: "Department, business unit, or platform organization"},
+	{Name: "Project", Plural: "projects", Description: "Game, product, or internal project"},
+	{Name: "CloudAccount", Plural: "cloudaccounts", Description: "AWS account, GCP project, or Cloudflare account"},
+	{Name: "Network", Plural: "networks", Description: "VPC, shared VPC, transit hub, edge, or external network"},
+	{Name: "Connectivity", Plural: "connectivities", Description: "Link between two networks"},
+	{Name: "Deployment", Plural: "deployments", Description: "A service or infrastructure instance in one environment"},
+	{Name: "DataFlow", Plural: "dataflows", Description: "Data or job flow between two endpoints"},
+	{Name: "Highlight", Plural: "highlights", Description: "Named overlay that marks nodes and edges on the landscape map"},
 }
 
 // kindIndex is a pre-built lookup table keyed by lowercase kind name.

@@ -6,7 +6,7 @@
   "properties": {
     "type": {
       "type": "string",
-      "enum": ["database", "queue", "cache", "storage", "bucket"],
+      "enum": ["database", "queue", "cache", "storage", "bucket", "graph-db"],
       "description": "Infrastructure type"
     },
     "provider": {
@@ -27,9 +27,41 @@
       "title": "Health Check URL",
       "description": "URL to the infrastructure health endpoint (e.g., https://postgres.example.com/healthz)"
     },
+    "engine": {
+      "type": "string",
+      "enum": ["postgres", "aurora-postgres", "aurora-mysql", "mysql", "dynamodb", "neptune", "redis", "kafka", "s3", "gcs", "r2", "cf-kv", "cf-d1", "other"],
+      "description": "Database or storage engine"
+    },
+    "managedBy": {
+      "type": "string",
+      "enum": ["cloud-sql", "rds", "aurora", "dynamodb", "neptune", "msk", "memorystore", "elasticache", "s3", "gcs", "cloudflare", "self-hosted"],
+      "description": "Managed service that runs this infrastructure"
+    },
+    "version": {
+      "type": "string",
+      "description": "Engine version"
+    },
+    "externalRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/externalRef" }
+    },
     "system": {
       "type": "string",
       "description": "Parent system or domain"
+    },
+    "projects": {
+      "type": "array",
+      "description": "Projects (games or products) this resource belongs to",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string" },
+          "namespace": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "required": ["kind", "name"]
+      }
     },
     "repoUrl": {
       "type": "string",
@@ -61,6 +93,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]
@@ -83,6 +116,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]
@@ -90,5 +124,18 @@
       "description": "Environments this resource is deployed in"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "id"],
+      "properties": {
+        "source": { "type": "string", "enum": ["terraform", "aws", "gcp", "cloudflare", "manual"] },
+        "id": { "type": "string" },
+        "tfAddress": { "type": "string" },
+        "stateSource": { "type": "string" }
+      }
+    }
+  }
 }

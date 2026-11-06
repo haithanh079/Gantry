@@ -135,7 +135,7 @@ API Keys: `GET/POST /api/v1/apikeys`, `DELETE /api/v1/apikeys/{id}`.
 ## CSS Theming
 
 Only these CSS custom properties are defined (do NOT use others):
-`--gantry-bg-primary`, `--gantry-bg-secondary`, `--gantry-bg-tertiary`, `--gantry-text-primary`, `--gantry-text-secondary`, `--gantry-border`, `--gantry-accent`, `--gantry-accent-hover`, `--gantry-danger`.
+`--gantry-bg-primary`, `--gantry-bg-secondary`, `--gantry-bg-tertiary`, `--gantry-text-primary`, `--gantry-text-secondary`, `--gantry-border`, `--gantry-accent`, `--gantry-accent-hover`, `--gantry-danger`, `--gantry-success`, `--gantry-warning`, `--gantry-mark-1`, `--gantry-mark-2`, `--gantry-mark-3`, `--gantry-mark-4`, `--gantry-mark-5`, `--gantry-mark-6`.
 
 For transparent accent backgrounds use `bg-[var(--gantry-accent)]/10` (Tailwind opacity modifier), NOT `bg-opacity-10`.
 
@@ -219,7 +219,7 @@ Gantry plugins follow a consistent pattern. Every plugin touches up to 11 files.
 
 ### Common Pitfalls
 
-- **CSS variables:** only the 9 `--gantry-*` properties exist. Using others → invisible/transparent elements
+- **CSS variables:** only the properties listed under CSS Theming exist, including `--gantry-success`, `--gantry-warning`, and `--gantry-mark-1` through `--gantry-mark-6`. Using others → invisible/transparent elements
 - **Tailwind opacity:** `bg-[var(--gantry-accent)]/10` not `bg-[var(--gantry-accent)] bg-opacity-10`
 - **Dark mode contrast:** never use `text-white` on accent backgrounds; use `text-[var(--gantry-bg-primary)]` which adapts
 - **Entity schemas:** all have `additionalProperties: false` — check allowed spec fields before adding new ones

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go2engle/gantry/internal/api"
+	"github.com/go2engle/gantry/internal/api/handlers"
 	"github.com/go2engle/gantry/internal/api/websocket"
 	"github.com/go2engle/gantry/internal/auth"
 	"github.com/go2engle/gantry/internal/config"
@@ -172,6 +173,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// Create the API server.
 	srv := api.NewServer(cfg, database, authService, eventBus, validator, searchService, wsHub, Version)
+
+	findings := &handlers.FindingsRunner{Handlers: srv.Handlers, Delay: 2 * time.Second}
+	findings.Subscribe(eventBus)
+	findings.Schedule()
 
 	// Initialize GitOps service if the plugin is installed and enabled.
 	srv.Handlers.InitGitOps()

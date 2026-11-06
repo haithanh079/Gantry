@@ -26,6 +26,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"],

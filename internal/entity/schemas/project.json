@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project",
+  "description": "Game, product, or internal project",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": { "type": "string", "enum": ["game", "platform", "internal-tool"] },
+    "department": { "$ref": "#/$defs/ref" },
+    "platforms": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["ios", "android", "web", "desktop"] }
+    },
+    "status": { "type": "string", "enum": ["incubating", "live", "sunset"] },
+    "links": { "$ref": "#/$defs/links" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "url"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "icon": { "type": "string", "enum": ["dashboard", "docs", "runbook", "github", "slack", "alert", "monitor", "ci", "other"] }
+        }
+      }
+    }
+  }
+}

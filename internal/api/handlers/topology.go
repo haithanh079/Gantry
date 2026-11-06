@@ -4,11 +4,13 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/go2engle/gantry/internal/entity"
 )
 
 // TopologyNode represents an entity in the topology view.
 type TopologyNode struct {
-	ID          string         `json:"id"` // "Kind/name"
+	ID          string         `json:"id"` // canonical "Kind/namespace/name"
 	Kind        string         `json:"kind"`
 	Name        string         `json:"name"`
 	Namespace   string         `json:"namespace,omitempty"`
@@ -139,7 +141,7 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		nodeID := e.Kind + "/" + e.Metadata.Name
+		nodeID := string(entity.IDOf(e))
 		spec := e.Spec
 		if spec == nil {
 			spec = map[string]any{}
@@ -158,16 +160,16 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 					Owner:       e.Metadata.Owner,
 				})
 			}
-			extractDependsOn(spec, nodeID, &edges)
+			extractDependsOn(e, nodeID, &edges)
 			continue
 		}
 
 		// Determine which environments this entity is deployed in.
-		deployedEnvs := extractDeployedIn(spec)
+		deployedEnvs := extractDeployedIn(e)
 
 		// Entities that dependOn another entity are nested as children of that
 		// parent rather than appearing as top-level items.
-		parentID := findFirstDependency(spec)
+		parentID := findFirstDependency(e)
 		if parentID != "" {
 			childEntities = append(childEntities, childEntry{
 				node: TopologyNode{
@@ -181,14 +183,14 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 				parent:       parentID,
 			})
 			// Emit edges for this entity.
-			for _, envName := range deployedEnvs {
+			for _, envRef := range deployedEnvs {
 				edges = append(edges, TopologyEdge{
 					From:     nodeID,
-					To:       "Environment/" + envName,
+					To:       envRef,
 					Relation: "deployedIn",
 				})
 			}
-			extractDependsOn(spec, nodeID, &edges)
+			extractDependsOn(e, nodeID, &edges)
 			continue
 		}
 
@@ -196,7 +198,11 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 		if envFilter != "" {
 			found := false
 			for _, env := range deployedEnvs {
-				if env == envFilter {
+				parsed, err := entity.ParseCanonicalRef(env)
+				if err != nil {
+					continue
+				}
+				if parsed.Name == envFilter || env == envFilter {
 					found = true
 					break
 				}
@@ -219,22 +225,26 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 		// Build edges: deployedIn.
 		// When filtering by environment, only emit edges (and count entities)
 		// for the filtered environment to keep the response self-contained.
-		for _, envName := range deployedEnvs {
-			if envFilter != "" && envName != envFilter {
+		for _, envRef := range deployedEnvs {
+			parsed, err := entity.ParseCanonicalRef(envRef)
+			if err != nil {
 				continue
 			}
-			if env, ok := envMap[envName]; ok {
+			if envFilter != "" && parsed.Name != envFilter && envRef != envFilter {
+				continue
+			}
+			if env, ok := envMap[parsed.Name]; ok {
 				env.EntityCount++
 			}
 			edges = append(edges, TopologyEdge{
 				From:     nodeID,
-				To:       "Environment/" + envName,
+				To:       envRef,
 				Relation: "deployedIn",
 			})
 		}
 
 		// Build edges: dependsOn.
-		extractDependsOn(spec, nodeID, &edges)
+		extractDependsOn(e, nodeID, &edges)
 
 		// Build edges: providesApis.
 		if raw, ok := spec["providesApis"]; ok {
@@ -242,7 +252,8 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 				for _, a := range apis {
 					apiName, _ := a.(string)
 					if apiName != "" {
-						edges = append(edges, TopologyEdge{From: nodeID, To: "API/" + apiName, Relation: "providesApi"})
+						to := string(entity.ResolveRef(e, entity.Ref{Kind: "API", Name: apiName}))
+						edges = append(edges, TopologyEdge{From: nodeID, To: to, Relation: "providesApi"})
 					}
 				}
 			}
@@ -254,7 +265,8 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 				for _, a := range apis {
 					apiName, _ := a.(string)
 					if apiName != "" {
-						edges = append(edges, TopologyEdge{From: nodeID, To: "API/" + apiName, Relation: "consumesApi"})
+						to := string(entity.ResolveRef(e, entity.Ref{Kind: "API", Name: apiName}))
+						edges = append(edges, TopologyEdge{From: nodeID, To: to, Relation: "consumesApi"})
 					}
 				}
 			}
@@ -262,7 +274,8 @@ func (h *Handlers) GetTopologyData(w http.ResponseWriter, r *http.Request) {
 
 		// Build edges: ownedBy.
 		if e.Metadata.Owner != "" {
-			edges = append(edges, TopologyEdge{From: nodeID, To: "Team/" + e.Metadata.Owner, Relation: "ownedBy"})
+			to := string(entity.ResolveRef(e, entity.Ref{Kind: "Team", Name: e.Metadata.Owner}))
+			edges = append(edges, TopologyEdge{From: nodeID, To: to, Relation: "ownedBy"})
 		}
 	}
 
@@ -363,78 +376,38 @@ func (h *Handlers) GetTopologyStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, statusMap)
 }
 
-// extractDeployedIn reads spec.deployedIn and returns environment names.
-func extractDeployedIn(spec map[string]any) []string {
-	raw, ok := spec["deployedIn"]
-	if !ok {
-		return nil
-	}
-	envs, ok := raw.([]any)
-	if !ok {
-		return nil
-	}
-	var names []string
-	for _, env := range envs {
-		if m, ok := env.(map[string]any); ok {
-			envKind, _ := m["kind"].(string)
-			envName, _ := m["name"].(string)
-			if envName == "" {
-				continue
-			}
-			// Only treat references as environment deployments if kind is
-			// omitted or explicitly "Environment".
-			if envKind != "" && envKind != "Environment" {
-				continue
-			}
-			names = append(names, envName)
+// extractDeployedIn reads spec.deployedIn and returns canonical Environment refs.
+func extractDeployedIn(e *entity.Entity) []string {
+	var refs []string
+	for _, ref := range entity.SpecRefs(e.Spec, "deployedIn") {
+		if ref.Kind != "" && ref.Kind != "Environment" {
+			continue
 		}
+		if ref.Kind == "" {
+			ref.Kind = "Environment"
+		}
+		refs = append(refs, string(entity.ResolveRef(e, ref)))
 	}
-	return names
+	return refs
 }
 
 // extractDependsOn reads spec.dependsOn and appends edges.
-func extractDependsOn(spec map[string]any, fromID string, edges *[]TopologyEdge) {
-	raw, ok := spec["dependsOn"]
-	if !ok {
-		return
-	}
-	deps, ok := raw.([]any)
-	if !ok {
-		return
-	}
-	for _, d := range deps {
-		if m, ok := d.(map[string]any); ok {
-			depKind, _ := m["kind"].(string)
-			depName, _ := m["name"].(string)
-			if depKind != "" && depName != "" {
-				*edges = append(*edges, TopologyEdge{From: fromID, To: depKind + "/" + depName, Relation: "dependsOn"})
-			}
-		}
+func extractDependsOn(e *entity.Entity, fromID string, edges *[]TopologyEdge) {
+	for _, ref := range entity.SpecRefs(e.Spec, "dependsOn") {
+		*edges = append(*edges, TopologyEdge{
+			From:     fromID,
+			To:       string(entity.ResolveRef(e, ref)),
+			Relation: "dependsOn",
+		})
 	}
 }
 
-// findFirstDependency returns the full node ID (Kind/name) of the first non-Environment
-// entity listed in spec.dependsOn, so that dependent entities are nested under their
-// parent in the topology view.
-func findFirstDependency(spec map[string]any) string {
-	raw, ok := spec["dependsOn"]
-	if !ok {
-		return ""
-	}
-	deps, ok := raw.([]any)
-	if !ok {
-		return ""
-	}
-	for _, d := range deps {
-		m, ok := d.(map[string]any)
-		if !ok {
-			continue
-		}
-		kind, _ := m["kind"].(string)
-		name, _ := m["name"].(string)
-		// Skip Environment entries — those are handled via deployedIn.
-		if kind != "" && name != "" && kind != "Environment" {
-			return kind + "/" + name
+// findFirstDependency returns the canonical id of the first non-Environment
+// entity listed in spec.dependsOn, so dependent entities nest under that parent.
+func findFirstDependency(e *entity.Entity) string {
+	for _, ref := range entity.SpecRefs(e.Spec, "dependsOn") {
+		if ref.Kind != "" && ref.Kind != "Environment" {
+			return string(entity.ResolveRef(e, ref))
 		}
 	}
 	return ""

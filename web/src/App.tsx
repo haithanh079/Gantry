@@ -19,7 +19,7 @@ const StatusMonitor = lazy(() => import('./pages/StatusMonitor'));
 const GitOps = lazy(() => import('./pages/GitOps'));
 const Harbor = lazy(() => import('./pages/Harbor'));
 const Nexus = lazy(() => import('./pages/Nexus'));
-const TopologyExplorer = lazy(() => import('./pages/TopologyExplorer'));
+const Landscape = lazy(() => import('./pages/Landscape'));
 const Flow = lazy(() => import('./pages/Flow'));
 
 function AuthenticatedLayout() {
@@ -43,7 +43,8 @@ function AuthenticatedLayout() {
           <Suspense fallback={<PageLoadingState />}>
             <Routes>
               <Route path="/flow" element={<div className="px-4 py-6 sm:px-6 sm:py-8"><Flow /></div>} />
-              <Route path="/topology" element={<div className="px-4 py-6 sm:px-6 sm:py-8"><TopologyExplorer /></div>} />
+              <Route path="/landscape" element={<Landscape />} />
+              <Route path="/topology" element={<Navigate to="/landscape" replace />} />
               <Route path="*" element={
                 <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
                   <Routes>

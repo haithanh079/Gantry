@@ -134,7 +134,7 @@ func TestGetEntityGraphIncludesDocumentationEdges(t *testing.T) {
 	}
 	found := false
 	for _, edge := range graph.Edges {
-		if edge.From == "Documentation/checkout-runbook" && edge.To == "Service/checkout" && edge.Relation == "documents" {
+		if edge.From == "Documentation/default/checkout-runbook" && edge.To == "Service/default/checkout" && edge.Relation == "documents" {
 			found = true
 			break
 		}
@@ -142,6 +142,50 @@ func TestGetEntityGraphIncludesDocumentationEdges(t *testing.T) {
 	if !found {
 		t.Fatalf("GetEntityGraph() missing documentation edge: %#v", graph.Edges)
 	}
+}
+
+func TestGetEntityGraphUsesCanonicalRefsAcrossNamespaces(t *testing.T) {
+	ctx := context.Background()
+	database := newTestDB(t)
+
+	nakama := &entity.Entity{
+		Kind: "Service", APIVersion: entity.DefaultAPIVersion,
+		Metadata: entity.EntityMetadata{Name: "nakama", Namespace: "music"},
+		Spec: map[string]any{
+			"dependsOn": []any{map[string]any{"kind": "Infrastructure", "name": "aurora"}},
+		},
+	}
+	aurora := &entity.Entity{
+		Kind: "Infrastructure", APIVersion: entity.DefaultAPIVersion,
+		Metadata: entity.EntityMetadata{Name: "aurora", Namespace: "music"},
+		Spec:     map[string]any{},
+	}
+	other := &entity.Entity{
+		Kind: "Infrastructure", APIVersion: entity.DefaultAPIVersion,
+		Metadata: entity.EntityMetadata{Name: "aurora", Namespace: entity.DefaultNamespace},
+		Spec:     map[string]any{},
+	}
+	for _, e := range []*entity.Entity{nakama, aurora, other} {
+		e.SetDefaults()
+		if err := database.CreateEntity(ctx, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	graph, err := database.GetEntityGraph(ctx, "Service", "music", "nakama")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Infrastructure/music/aurora"
+	for _, edge := range graph.Edges {
+		if edge.Relation == "dependsOn" && edge.To == want {
+			return
+		}
+		if edge.To == "Infrastructure/default/aurora" {
+			t.Fatalf("edge resolved into the wrong namespace: %#v", edge)
+		}
+	}
+	t.Fatalf("missing canonical dependsOn edge: %#v", graph.Edges)
 }
 
 func TestMigrateUpgradesEntityFTSForFullEntitySearch(t *testing.T) {

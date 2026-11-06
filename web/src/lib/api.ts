@@ -1,4 +1,4 @@
-import type { Entity, User, SearchResult, ActionRun, AuditEntry, APIKey, GraphData, PluginRegistryEntry, PluginDetail, PluginConfig, PluginSyncResult, K8sWorkloadInfo, GitHubRepoInfo, GitHubWikiInfo, ArgoCDAppStatus, ArgoCDAppWithInstance, GitHubWorkflow, ActionInputDef, DashboardConfig, HistoryEntry, StatusMonitorResult, GitOpsStatus, GitOpsSyncEntry, GitOpsFileEntry, Group, GroupDetail, PermissionRule, EffectivePermissions, RBACConfig, Role, VersionResponse, HarborRepository, HarborArtifact, HarborVulnerability, HarborSummaryResponse, NexusComponent, NexusAsset, NexusRepository, TopologyData, TopologyStatusMap, FlowPluginSettings, FlowSpec } from './types';
+import type { Entity, User, SearchResult, ActionRun, AuditEntry, APIKey, GraphData, PluginRegistryEntry, PluginDetail, PluginConfig, PluginSyncResult, K8sWorkloadInfo, GitHubRepoInfo, GitHubWikiInfo, ArgoCDAppStatus, ArgoCDAppWithInstance, GitHubWorkflow, ActionInputDef, DashboardConfig, HistoryEntry, StatusMonitorResult, GitOpsStatus, GitOpsSyncEntry, GitOpsFileEntry, Group, GroupDetail, PermissionRule, EffectivePermissions, RBACConfig, Role, VersionResponse, HarborRepository, HarborArtifact, HarborVulnerability, HarborSummaryResponse, NexusComponent, NexusAsset, NexusRepository, TopologyData, TopologyStatusMap, FlowPluginSettings, FlowSpec, LandscapeGraph, LandscapeInventory, LandscapeDataFlow, LandscapeBlast, LandscapeFinding } from './types';
 import { encodePathSegment } from './utils';
 
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
@@ -304,4 +304,11 @@ export const api = {
     request<EffectivePermissions>('GET', `/rbac/effective/${userId}`),
   exportRBACConfig: () => request<RBACConfig>('GET', '/rbac/export'),
   importRBACConfig: (config: RBACConfig) => request<{ groupsCreated: number; groupsUpdated: number; rulesImported: number }>('POST', '/rbac/import', config),
+
+  getLandscapeGraph: (query: string) => request<LandscapeGraph>('GET', `/landscape/graph${query}`),
+  getLandscapeInventory: (query: string) => request<LandscapeInventory>('GET', `/landscape/inventory${query}`),
+  getLandscapeDataFlows: (query: string) => request<{ dataflows: LandscapeDataFlow[] }>('GET', `/landscape/dataflows${query}`),
+  getLandscapeBlast: (kind: string, namespace: string, name: string) =>
+    request<LandscapeBlast>('GET', `/landscape/blast-radius/${encodePathSegment(kind)}/${encodePathSegment(namespace)}/${encodePathSegment(name)}`),
+  getLandscapeFindings: (query = '') => request<{ findings: LandscapeFinding[] }>('GET', `/landscape/findings${query}`),
 };

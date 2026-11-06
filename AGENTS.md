@@ -65,7 +65,7 @@ Each kind has a JSON Schema in `internal/entity/schemas/`. All schemas use `"add
 
 ### Frontend
 
-- **CSS variables:** only use: `--gantry-bg-primary`, `--gantry-bg-secondary`, `--gantry-bg-tertiary`, `--gantry-text-primary`, `--gantry-text-secondary`, `--gantry-border`, `--gantry-accent`, `--gantry-accent-hover`, `--gantry-danger`. No others exist.
+- **CSS variables:** `--gantry-bg-primary`, `--gantry-bg-secondary`, `--gantry-bg-tertiary`, `--gantry-text-primary`, `--gantry-text-secondary`, `--gantry-border`, `--gantry-accent`, `--gantry-accent-hover`, `--gantry-danger`, `--gantry-success`, `--gantry-warning`, and highlight colors `--gantry-mark-1` through `--gantry-mark-6`. Each has a light and a dark value. Do not invent other `--gantry-*` names.
 - **Tailwind opacity:** `bg-[var(--gantry-accent)]/10` NOT `bg-[var(--gantry-accent)] bg-opacity-10`.
 - **Dark mode contrast:** use `text-[var(--gantry-bg-primary)]` on accent backgrounds, NOT `text-white`.
 - **Dark mode:** toggled via `.dark` class on `<html>`.
@@ -170,7 +170,7 @@ In `dashboard.go`:
 
 ### Common Pitfalls
 
-- **CSS variables:** only 9 `--gantry-*` properties exist. Using undefined ones renders invisible.
+- **CSS variables:** only the properties listed in the Frontend section exist (`success`, `warning`, and `mark-1`..`mark-6` included). Using undefined ones renders invisible.
 - **Tailwind opacity:** `bg-[var(--gantry-accent)]/10` not `bg-[var(--gantry-accent)] bg-opacity-10`.
 - **Dark mode contrast:** `text-[var(--gantry-bg-primary)]` on accent backgrounds, never `text-white`.
 - **Entity schemas:** `additionalProperties: false` — check allowed spec fields before adding.

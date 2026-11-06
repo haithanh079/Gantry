@@ -31,6 +31,7 @@ engineering organizations understand and manage their software ecosystem.`,
 		installCmd(),
 		upgradeCmd(),
 		uninstallCmd(),
+		migrateCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

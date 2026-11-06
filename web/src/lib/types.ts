@@ -461,6 +461,14 @@ export const ENTITY_KINDS = [
   { name: 'Environment', plural: 'environments', icon: 'Cloud' },
   { name: 'Documentation', plural: 'documentation', icon: 'FileText' },
   { name: 'Flow', plural: 'flows', icon: 'Network' },
+  { name: 'Department', plural: 'departments', icon: 'Users' },
+  { name: 'Project', plural: 'projects', icon: 'Box' },
+  { name: 'CloudAccount', plural: 'cloudaccounts', icon: 'Cloud' },
+  { name: 'Network', plural: 'networks', icon: 'Network' },
+  { name: 'Connectivity', plural: 'connectivities', icon: 'Network' },
+  { name: 'Deployment', plural: 'deployments', icon: 'Server' },
+  { name: 'DataFlow', plural: 'dataflows', icon: 'Workflow' },
+  { name: 'Highlight', plural: 'highlights', icon: 'Layers' },
 ] as const;
 
 export type EntityKindName = (typeof ENTITY_KINDS)[number]['name'];
@@ -775,3 +783,100 @@ export interface TopologyData {
 }
 
 export type TopologyStatusMap = Record<string, { status: string; description: string }>;
+
+export interface LandscapeNode {
+  id: string;
+  kind: string;
+  name: string;
+  namespace?: string;
+  title?: string;
+  cluster?: string;
+  actorOf?: string[];
+  meta?: Record<string, unknown>;
+}
+
+export interface LandscapeEdge {
+  id: string;
+  from: string;
+  to: string;
+  layer: 'network' | 'data' | string;
+  relation?: string;
+  count?: number;
+  protocol?: string;
+  port?: number;
+  inferred?: boolean;
+  dataFlowRef?: string;
+  actorRef?: string;
+  mode?: string;
+  transport?: string;
+  dataClasses?: string[];
+}
+
+export interface LandscapeCluster {
+  id: string;
+  label: string;
+}
+
+export interface LandscapeHighlight {
+  ref: string;
+  name: string;
+  color: string;
+  defaultOn: boolean;
+  nodeIds: string[];
+  edgeIds: string[];
+}
+
+export interface LandscapeGraph {
+  clusters: LandscapeCluster[];
+  nodes: LandscapeNode[];
+  edges: LandscapeEdge[];
+  counts: Record<string, number>;
+  highlights: LandscapeHighlight[];
+}
+
+export interface LandscapeInventoryCell {
+  env: string;
+  runtime?: string;
+  region?: string;
+  version?: string;
+  cloud?: string;
+  deployment: string;
+}
+
+export interface LandscapeInventory {
+  groups: { project: string; rows: { service: string; namespace?: string; owner?: string; cells: Record<string, LandscapeInventoryCell> }[] }[];
+  kpis: Record<string, number>;
+  envs: string[];
+}
+
+export interface LandscapeDataFlow {
+  ref: string;
+  name: string;
+  namespace?: string;
+  source: string;
+  target: string;
+  actor?: string;
+  mode?: string;
+  schedule?: string;
+  transport?: string;
+  dataClasses?: string[];
+  owner?: string;
+  status?: string;
+}
+
+export interface LandscapeBlast {
+  subject: string;
+  groups: { project: string; department?: string; deployments: string[]; dataFlows: string[] }[];
+}
+
+export interface LandscapeFinding {
+  id: string;
+  rule: string;
+  category: string;
+  severity: string;
+  subjectRef: string;
+  details?: Record<string, unknown>;
+  firstSeen?: string;
+  lastSeen?: string;
+  status: string;
+}

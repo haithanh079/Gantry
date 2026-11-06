@@ -343,7 +343,7 @@ func (d *DB) ListDocumentationForEntity(ctx context.Context, kind, namespace, na
 	}
 	var related []*entity.Entity
 	for _, doc := range docs {
-		if documentationRelatesTo(doc.Spec, kind, name) {
+		if documentationRelatesTo(doc.Spec, kind, namespace, name) {
 			related = append(related, doc)
 		}
 	}
@@ -591,8 +591,9 @@ type GraphData struct {
 }
 
 type entityRef struct {
-	Kind string
-	Name string
+	Kind      string
+	Name      string
+	Namespace string
 }
 
 func relatedEntityRefs(spec map[string]any) []entityRef {
@@ -613,18 +614,18 @@ func relatedEntityRefs(spec map[string]any) []entityRef {
 		if !ok {
 			continue
 		}
-		refKind, _ := m["kind"].(string)
-		refName, _ := m["name"].(string)
-		if refKind != "" && refName != "" {
-			out = append(out, entityRef{Kind: refKind, Name: refName})
+		ref, ok := entity.RefFromSpec(m)
+		if !ok {
+			continue
 		}
+		out = append(out, entityRef{Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace})
 	}
 	return out
 }
 
-func documentationRelatesTo(spec map[string]any, kind, name string) bool {
+func documentationRelatesTo(spec map[string]any, kind, namespace, name string) bool {
 	for _, ref := range relatedEntityRefs(spec) {
-		if ref.Kind == kind && ref.Name == name {
+		if ref.Kind == kind && ref.Name == name && (ref.Namespace == "" || ref.Namespace == namespace) {
 			return true
 		}
 	}
@@ -670,24 +671,29 @@ func (d *DB) GetEntityGraph(ctx context.Context, kind, namespace, name string) (
 		return nil, err
 	}
 
-	rootID := kind + "/" + name
+	rootID := string(entity.IDOf(root))
 	nodes := map[string]GraphNode{
 		rootID: {ID: rootID, Kind: root.Kind, Namespace: root.Metadata.Namespace, Name: root.Metadata.Name, Title: root.Metadata.Title, IsRoot: true},
 	}
 	var edges []GraphEdge
 
 	// addNode fetches an entity and adds it to the nodes map (as a stub if not found).
-	addNode := func(nodeKind, nodeName string) {
-		id := nodeKind + "/" + nodeName
+	addNode := func(ref entity.Ref) string {
+		id := string(entity.ResolveRef(root, ref))
 		if _, exists := nodes[id]; exists {
-			return
+			return id
 		}
-		e, err := d.GetEntity(ctx, nodeKind, namespace, nodeName)
+		parsed, err := entity.ParseCanonicalRef(id)
 		if err != nil {
-			nodes[id] = GraphNode{ID: id, Kind: nodeKind, Namespace: namespace, Name: nodeName}
-			return
+			return id
+		}
+		e, err := d.GetEntity(ctx, parsed.Kind, parsed.Namespace, parsed.Name)
+		if err != nil {
+			nodes[id] = GraphNode{ID: id, Kind: parsed.Kind, Namespace: parsed.Namespace, Name: parsed.Name}
+			return id
 		}
 		nodes[id] = GraphNode{ID: id, Kind: e.Kind, Namespace: e.Metadata.Namespace, Name: e.Metadata.Name, Title: e.Metadata.Title}
+		return id
 	}
 
 	spec := root.Spec
@@ -695,80 +701,53 @@ func (d *DB) GetEntityGraph(ctx context.Context, kind, namespace, name string) (
 		spec = map[string]any{}
 	}
 
-	// Forward: dependsOn — [{kind, name}, ...]
-	if raw, ok := spec["dependsOn"]; ok {
-		if deps, ok := raw.([]any); ok {
-			for _, d := range deps {
-				if m, ok := d.(map[string]any); ok {
-					depKind, _ := m["kind"].(string)
-					depName, _ := m["name"].(string)
-					if depKind != "" && depName != "" {
-						addNode(depKind, depName)
-						edges = append(edges, GraphEdge{From: rootID, To: depKind + "/" + depName, Relation: "dependsOn"})
-					}
-				}
-			}
+	appendRefEdges := func(field, relation string) {
+		for _, ref := range entity.SpecRefs(spec, field) {
+			to := addNode(ref)
+			edges = append(edges, GraphEdge{From: rootID, To: to, Relation: relation})
 		}
 	}
+	appendRefEdges("dependsOn", "dependsOn")
+	appendRefEdges("deployedIn", "deployedIn")
 
-	// Forward: deployedIn — [{kind, name}, ...]
-	if raw, ok := spec["deployedIn"]; ok {
-		if envs, ok := raw.([]any); ok {
-			for _, env := range envs {
-				if m, ok := env.(map[string]any); ok {
-					envKind, _ := m["kind"].(string)
-					envName, _ := m["name"].(string)
-					if envKind != "" && envName != "" {
-						addNode(envKind, envName)
-						edges = append(edges, GraphEdge{From: rootID, To: envKind + "/" + envName, Relation: "deployedIn"})
-					}
-				}
+	// Forward: providesApis / consumesApis — [apiName, ...] in the root namespace.
+	appendAPIEdges := func(field, relation string) {
+		raw, ok := spec[field]
+		if !ok {
+			return
+		}
+		apis, ok := raw.([]any)
+		if !ok {
+			return
+		}
+		for _, a := range apis {
+			apiName, _ := a.(string)
+			if apiName == "" {
+				continue
 			}
+			to := addNode(entity.Ref{Kind: "API", Name: apiName})
+			edges = append(edges, GraphEdge{From: rootID, To: to, Relation: relation})
 		}
 	}
-
-	// Forward: providesApis — [apiName, ...]
-	if raw, ok := spec["providesApis"]; ok {
-		if apis, ok := raw.([]any); ok {
-			for _, a := range apis {
-				apiName, _ := a.(string)
-				if apiName != "" {
-					addNode("API", apiName)
-					edges = append(edges, GraphEdge{From: rootID, To: "API/" + apiName, Relation: "providesApi"})
-				}
-			}
-		}
-	}
-
-	// Forward: consumesApis — [apiName, ...]
-	if raw, ok := spec["consumesApis"]; ok {
-		if apis, ok := raw.([]any); ok {
-			for _, a := range apis {
-				apiName, _ := a.(string)
-				if apiName != "" {
-					addNode("API", apiName)
-					edges = append(edges, GraphEdge{From: rootID, To: "API/" + apiName, Relation: "consumesApi"})
-				}
-			}
-		}
-	}
+	appendAPIEdges("providesApis", "providesApi")
+	appendAPIEdges("consumesApis", "consumesApi")
 
 	// Forward: relatedTo — Documentation entities document their related entities.
 	if root.Kind == "Documentation" {
 		for _, ref := range relatedEntityRefs(spec) {
-			addNode(ref.Kind, ref.Name)
-			edges = appendGraphEdge(edges, GraphEdge{From: rootID, To: ref.Kind + "/" + ref.Name, Relation: "documents"})
+			to := addNode(entity.Ref{Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace})
+			edges = appendGraphEdge(edges, GraphEdge{From: rootID, To: to, Relation: "documents"})
 		}
 		if ref, ok := legacyDocumentationRef(spec); ok {
-			addNode(ref.Kind, ref.Name)
-			edges = appendGraphEdge(edges, GraphEdge{From: rootID, To: ref.Kind + "/" + ref.Name, Relation: "documents"})
+			to := addNode(entity.Ref{Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace})
+			edges = appendGraphEdge(edges, GraphEdge{From: rootID, To: to, Relation: "documents"})
 		}
 	}
 
-	// Forward: owner (metadata) → Team
+	// Forward: owner (metadata) → Team in the root namespace.
 	if root.Metadata.Owner != "" {
-		addNode("Team", root.Metadata.Owner)
-		edges = append(edges, GraphEdge{From: rootID, To: "Team/" + root.Metadata.Owner, Relation: "ownedBy"})
+		to := addNode(entity.Ref{Kind: "Team", Name: root.Metadata.Owner})
+		edges = append(edges, GraphEdge{From: rootID, To: to, Relation: "ownedBy"})
 	}
 
 	// Reverse: scan all entities to find those that reference root in their dependsOn.
@@ -777,47 +756,42 @@ func (d *DB) GetEntityGraph(ctx context.Context, kind, namespace, name string) (
 		return nil, fmt.Errorf("listing entities for graph: %w", err)
 	}
 	for _, e := range all {
-		eID := e.Kind + "/" + e.Metadata.Name
+		eID := string(entity.IDOf(e))
 		if eID == rootID || e.Spec == nil {
 			continue
 		}
-		if raw, ok := e.Spec["dependsOn"]; ok {
-			if deps, ok := raw.([]any); ok {
-				for _, d := range deps {
-					if m, ok := d.(map[string]any); ok {
-						depKind, _ := m["kind"].(string)
-						depName, _ := m["name"].(string)
-						if depKind == kind && depName == name {
-							if _, exists := nodes[eID]; !exists {
-								nodes[eID] = GraphNode{ID: eID, Kind: e.Kind, Namespace: e.Metadata.Namespace, Name: e.Metadata.Name, Title: e.Metadata.Title}
-							}
-							edges = append(edges, GraphEdge{From: eID, To: rootID, Relation: "dependsOn"})
-						}
-					}
-				}
-			}
-		}
-		if raw, ok := e.Spec["deployedIn"]; ok {
-			if envs, ok := raw.([]any); ok {
-				for _, env := range envs {
-					if m, ok := env.(map[string]any); ok {
-						envKind, _ := m["kind"].(string)
-						envName, _ := m["name"].(string)
-						if envKind == kind && envName == name {
-							if _, exists := nodes[eID]; !exists {
-								nodes[eID] = GraphNode{ID: eID, Kind: e.Kind, Namespace: e.Metadata.Namespace, Name: e.Metadata.Name, Title: e.Metadata.Title}
-							}
-							edges = append(edges, GraphEdge{From: eID, To: rootID, Relation: "deployedIn"})
-						}
-					}
-				}
-			}
-		}
-		if e.Kind == "Documentation" && e.Metadata.Namespace == namespace && documentationRelatesTo(e.Spec, kind, name) {
+		addReverse := func(relation string) {
 			if _, exists := nodes[eID]; !exists {
 				nodes[eID] = GraphNode{ID: eID, Kind: e.Kind, Namespace: e.Metadata.Namespace, Name: e.Metadata.Name, Title: e.Metadata.Title}
 			}
-			edges = appendGraphEdge(edges, GraphEdge{From: eID, To: rootID, Relation: "documents"})
+			edges = append(edges, GraphEdge{From: eID, To: rootID, Relation: relation})
+		}
+		for _, field := range []string{"dependsOn", "deployedIn"} {
+			for _, ref := range entity.SpecRefs(e.Spec, field) {
+				if string(entity.ResolveRef(e, ref)) == rootID {
+					addReverse(field)
+				}
+			}
+		}
+		if e.Kind == "Documentation" {
+			matched := false
+			for _, ref := range relatedEntityRefs(e.Spec) {
+				if string(entity.ResolveRef(e, entity.Ref{Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace})) == rootID {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				if ref, ok := legacyDocumentationRef(e.Spec); ok {
+					matched = string(entity.ResolveRef(e, entity.Ref{Kind: ref.Kind, Name: ref.Name})) == rootID
+				}
+			}
+			if matched {
+				if _, exists := nodes[eID]; !exists {
+					nodes[eID] = GraphNode{ID: eID, Kind: e.Kind, Namespace: e.Metadata.Namespace, Name: e.Metadata.Name, Title: e.Metadata.Title}
+				}
+				edges = appendGraphEdge(edges, GraphEdge{From: eID, To: rootID, Relation: "documents"})
+			}
 		}
 	}
 

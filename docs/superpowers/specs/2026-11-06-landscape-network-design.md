@@ -1,7 +1,7 @@
 # Gantry Landscape: model triển khai, Observed Inventory và Network Path
 
 - **Ngày:** 2026-11-06
-- **Trạng thái:** Draft v3 (thêm DataFlow, Highlight, nhập tay Cloudflare qua MCP, tag allowlist cấu hình được), chờ user review
+- **Trạng thái:** Plan A implemented (2026-11-06). Draft v3 vẫn là hợp đồng cho Plan B và Plan C. Khác biệt của phần đã làm nằm ở mục 17.
 - **Phạm vi:** Sub-project 1 + 2 + 3 (model dữ liệu, Landscape view, network path A → B, luồng dữ liệu / job)
 - **Ngoài phạm vi (spec riêng sau):** tech stack / version / outdated / CVE (sub-project 4); discovery qua cloud API AWS/GCP/Cloudflare (sub-project 5). Cloudflare API không có ở v1; dữ liệu Cloudflare đến từ Terraform hoặc nhập tay qua MCP (mục 6.3)
 - **Mockup UI:** Open Design project `gantry-landscape`
@@ -563,3 +563,14 @@ Saved views (Highlight thay thế phần "đánh dấu để chia sẻ"; filter 
 - **Luồng dữ liệu / job:** mô hình bằng kind `DataFlow` (source, target, actor); đánh dấu / highlight bằng kind `Highlight`; cả hai thuộc Plan A, phần reachability của DataFlow thuộc Plan C.
 
 Hiện không còn câu hỏi mở.
+
+## 17. Plan A đã triển khai — khác biệt so với spec
+
+Plan A (model, API, MCP, Map, Inventory) đã có trên nhánh `feat/landscape-plan-a`. Các điểm khác với bản Draft v3:
+
+- `internal/mcp/service_tools.go` (`link_service`) không có trên nhánh này, nên tham số `targetNamespace` chưa được thêm. Ref canonical `Kind/namespace/name` đã dùng cho graph, topology API và đường dẫn catalog (`?namespace=` khi không phải `default`).
+- `Deployment` không có field `provider`. `gantry migrate landscape` copy `region` vào `spec.regions` và copy `provider` của Environment vào annotation `gantry.io/migrated-provider`.
+- Schema `Infrastructure` có thêm `projects`, cùng dạng với Service, để migration gắn Project gợi ý từ `system`. Mục 4.4 chỉ nói `projects` trên Service.
+- Fixture 22 Deployment là `landscape.FixtureCatalog()` trong Go. Catalog YAML gốc không nằm trong repo. Apply lần hai không tạo thêm Deployment.
+- Findings được tính lại lúc start và sau sự kiện entity, debounce 2 giây, trong `cmd/gantry/serve.go`. Bảng `landscape_findings` nằm ở `internal/db`.
+- Đo trên máy dev: `BuildGraph` mức deployment với 500 Deployment, 40 DataFlow, 5 Highlight mất khoảng 4 ms (ngưỡng 300 ms). ELK `layered` cho 500 node và 333 cạnh mất 174 ms trong elkjs 0.12. `elkjs` được đóng gói trong chunk worker `elk.worker-*.js`, không nằm trong bundle chính.

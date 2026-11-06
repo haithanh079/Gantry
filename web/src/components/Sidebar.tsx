@@ -22,6 +22,8 @@ import {
   Shield,
   Package,
   Network,
+  Map,
+  Layers,
   Archive,
   Workflow,
   X,
@@ -41,6 +43,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Cloud,
   FileText,
   Network,
+  Box,
+  Workflow,
+  Layers,
 };
 
 interface NavItem {
@@ -165,6 +170,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarPr
 
   const navItems: NavItem[] = useMemo(() => ([
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { label: 'Landscape', path: '/landscape', icon: Map },
     {
       label: 'Catalog',
       path: '/catalog',

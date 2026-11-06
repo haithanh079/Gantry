@@ -21,7 +21,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { catalogEntityPath } from '../lib/utils';
+import { catalogEntityPath, parseCatalogRef } from '../lib/utils';
 import type {
   TopologyData,
   TopologyNode,
@@ -31,9 +31,9 @@ import type {
 } from '../lib/types';
 
 function topologyEntityPath(id: string): string {
-  const separator = id.indexOf('/');
-  if (separator === -1) return '/catalog';
-  return catalogEntityPath(id.slice(0, separator), id.slice(separator + 1));
+  const ref = parseCatalogRef(id);
+  if (!ref) return '/catalog';
+  return catalogEntityPath(ref.kind, ref.name, ref.namespace);
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────

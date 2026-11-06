@@ -87,3 +87,41 @@ func TestSchemaValidatorAllowsHealthCheckURLForAPIAndInfrastructure(t *testing.T
 		})
 	}
 }
+
+func TestLandscapeKindSchemas(t *testing.T) {
+	validator, err := NewSchemaValidator("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]map[string]any{
+		"Department":   {"type": "platform", "leads": []any{"ada"}},
+		"Project":      {"type": "game", "status": "live", "department": map[string]any{"kind": "Department", "name": "music"}},
+		"CloudAccount": {"provider": "aws", "accountId": "123", "envType": "production"},
+		"Network":      {"provider": "aws", "networkType": "vpc", "region": "ap-southeast-1", "cidrs": []any{"10.0.0.0/16"}},
+		"Connectivity": {"type": "vpc-peering", "from": map[string]any{"kind": "Network", "name": "a"}, "to": map[string]any{"kind": "Network", "name": "b"}, "bidirectional": true},
+		"Deployment": {
+			"target":      map[string]any{"kind": "Service", "name": "nakama"},
+			"environment": map[string]any{"kind": "Environment", "name": "production"},
+			"runtime":     map[string]any{"platform": "ecs", "cluster": "prod", "workload": "nakama"},
+		},
+		"DataFlow": {
+			"source": map[string]any{"kind": "Infrastructure", "name": "r2-game-assets"},
+			"target": map[string]any{"kind": "Deployment", "name": "s3-app-storage-production"},
+			"actor":  map[string]any{"kind": "Deployment", "name": "asset-sync-production"},
+			"mode":   "batch", "transport": "public-internet", "dataClasses": []any{"assets"},
+		},
+		"Highlight": {"color": "mark-3", "defaultOn": true, "selector": map[string]any{"transports": []any{"public-internet"}}},
+	}
+	for kind, spec := range valid {
+		e := &Entity{Kind: kind, Metadata: EntityMetadata{Name: "example"}, Spec: spec}
+		e.SetDefaults()
+		if err := validator.Validate(e); err != nil {
+			t.Errorf("%s valid spec rejected: %v", kind, err)
+		}
+	}
+	bad := &Entity{Kind: "DataFlow", Metadata: EntityMetadata{Name: "bad"}, Spec: map[string]any{"mode": "batch", "extra": true}}
+	bad.SetDefaults()
+	if err := validator.Validate(bad); err == nil {
+		t.Fatal("expected additionalProperties rejection")
+	}
+}

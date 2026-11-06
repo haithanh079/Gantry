@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DataFlow",
+  "description": "Data or job flow between a source and a target, optionally executed by an actor deployment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "target", "mode"],
+  "properties": {
+    "source": { "$ref": "#/$defs/ref" },
+    "target": { "$ref": "#/$defs/ref" },
+    "actor": { "$ref": "#/$defs/ref" },
+    "mode": { "type": "string", "enum": ["batch", "stream", "replication", "event", "sync", "export", "backup"] },
+    "schedule": { "type": "string" },
+    "transport": {
+      "type": "string",
+      "enum": ["public-internet", "private", "privatelink", "vpc-endpoint", "cf-tunnel", "provider-internal", "unknown"]
+    },
+    "dataClasses": { "type": "array", "items": { "type": "string" } },
+    "direction": { "type": "string", "enum": ["push", "pull"] },
+    "volumeHint": { "type": "string" },
+    "status": { "type": "string", "enum": ["active", "paused", "deprecated"] },
+    "links": { "$ref": "#/$defs/links" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "url"],
+        "properties": {
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "icon": { "type": "string", "enum": ["dashboard", "docs", "runbook", "github", "slack", "alert", "monitor", "ci", "other"] }
+        }
+      }
+    }
+  }
+}

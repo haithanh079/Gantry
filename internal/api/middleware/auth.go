@@ -71,6 +71,19 @@ func RequireRole(role string) func(http.Handler) http.Handler {
 	}
 }
 
+// ContextWithAuth stores claims and an effective role the way RequireAuth does.
+// Tests and in-process callers use it when there is no HTTP request.
+func ContextWithAuth(ctx context.Context, claims *auth.Claims, effectiveRole string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = context.WithValue(ctx, claimsKey, claims)
+	if effectiveRole != "" {
+		ctx = context.WithValue(ctx, effectiveRoleKey, effectiveRole)
+	}
+	return ctx
+}
+
 // GetClaims extracts the auth.Claims from the request context.
 // It returns nil if no claims are present.
 func GetClaims(ctx context.Context) *auth.Claims {

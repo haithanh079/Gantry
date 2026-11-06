@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Highlight",
+  "description": "Named layer that marks a set of landscape nodes and edges",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["color"],
+  "properties": {
+    "color": { "type": "string", "enum": ["mark-1", "mark-2", "mark-3", "mark-4", "mark-5", "mark-6"] },
+    "members": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "$ref": "#/$defs/ref" },
+          "to": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kinds": { "type": "array", "items": { "type": "string" } },
+        "environments": { "type": "array", "items": { "type": "string" } },
+        "clouds": { "type": "array", "items": { "type": "string" } },
+        "projects": { "type": "array", "items": { "type": "string" } },
+        "departments": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "dataClasses": { "type": "array", "items": { "type": "string" } },
+        "transports": { "type": "array", "items": { "type": "string" } },
+        "modes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "includeNeighbors": { "type": "boolean" },
+    "defaultOn": { "type": "boolean" },
+    "note": { "type": "string" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    }
+  }
+}

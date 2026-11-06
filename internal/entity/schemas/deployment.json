@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Deployment",
+  "description": "One instance of a Service or Infrastructure in an Environment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "environment"],
+  "properties": {
+    "target": { "$ref": "#/$defs/ref" },
+    "environment": { "$ref": "#/$defs/ref" },
+    "cloudAccount": { "$ref": "#/$defs/ref" },
+    "regions": { "type": "array", "items": { "type": "string" } },
+    "network": { "$ref": "#/$defs/ref" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["cloud-run", "gke", "eks", "ecs", "ec2", "lambda", "cf-workers", "managed", "docker"]
+        },
+        "cluster": { "type": "string" },
+        "workload": { "type": "string" }
+      }
+    },
+    "ingress": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "enum": ["alb", "nlb", "cf", "apigw", "cloud-lb"] },
+          "host": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["public", "internal"] }
+        }
+      }
+    },
+    "version": { "type": "string" },
+    "connectsTo": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["deployment"],
+        "properties": {
+          "deployment": { "$ref": "#/$defs/ref" },
+          "protocol": { "type": "string", "enum": ["tcp", "udp"] },
+          "port": { "type": "integer", "minimum": 0 },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "externalRefs": { "type": "array", "items": { "$ref": "#/$defs/externalRef" } }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "id"],
+      "properties": {
+        "source": { "type": "string", "enum": ["terraform", "aws", "gcp", "cloudflare", "manual"] },
+        "id": { "type": "string" },
+        "tfAddress": { "type": "string" },
+        "stateSource": { "type": "string" }
+      }
+    }
+  }
+}

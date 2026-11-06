@@ -18,6 +18,20 @@
       "type": "string",
       "description": "Parent system or domain"
     },
+    "projects": {
+      "type": "array",
+      "description": "Projects (games or products) this service belongs to",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string" },
+          "namespace": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "required": ["kind", "name"],
+        "additionalProperties": false
+      }
+    },
     "repoUrl": {
       "type": "string",
       "title": "Repository URL",
@@ -63,6 +77,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]
@@ -85,6 +100,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]

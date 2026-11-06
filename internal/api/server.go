@@ -178,6 +178,13 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 			// Relationship graph.
 			protected.Get("/graph/{kind}/{name}", h.GetEntityGraph)
 
+			// Landscape (Plan A): catalog map, inventory, data flows, blast radius, findings.
+			protected.Get("/landscape/graph", h.GetLandscapeGraph)
+			protected.Get("/landscape/inventory", h.GetLandscapeInventory)
+			protected.Get("/landscape/dataflows", h.GetLandscapeDataFlows)
+			protected.Get("/landscape/blast-radius/{kind}/{ns}/{name}", h.GetLandscapeBlastRadius)
+			protected.Get("/landscape/findings", h.GetLandscapeFindings)
+
 			// Schemas.
 			protected.Get("/schemas", h.ListSchemas)
 			protected.Get("/schemas/{kind}", h.GetSchema)

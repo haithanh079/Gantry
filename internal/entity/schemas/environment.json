@@ -6,24 +6,28 @@
   "properties": {
     "provider": {
       "type": "string",
-      "description": "Cloud provider (e.g., AWS, GCP, Azure)"
+      "description": "Deprecated. Prefer CloudAccount.provider. Still accepted for existing catalogs.",
+      "deprecated": true
     },
     "region": {
       "type": "string",
-      "description": "Cloud region or data center location"
+      "description": "Deprecated. Prefer Deployment.regions. Still accepted for existing catalogs.",
+      "deprecated": true
     },
     "type": {
       "type": "string",
-      "enum": ["staging", "production", "development"],
+      "enum": ["staging", "production", "development", "qc", "sandbox"],
       "description": "Environment type"
     },
     "cluster": {
       "type": "string",
-      "description": "Kubernetes cluster name or compute cluster identifier"
+      "description": "Deprecated. Prefer Deployment.runtime.cluster. Still accepted for existing catalogs.",
+      "deprecated": true
     },
     "accountId": {
       "type": "string",
-      "description": "Cloud account or project identifier"
+      "description": "Deprecated. Prefer CloudAccount.accountId. Still accepted for existing catalogs.",
+      "deprecated": true
     },
     "system": {
       "type": "string",
@@ -35,6 +39,7 @@
         "type": "object",
         "properties": {
           "kind": { "type": "string" },
+          "namespace": { "type": "string" },
           "name": { "type": "string" }
         },
         "required": ["kind", "name"]

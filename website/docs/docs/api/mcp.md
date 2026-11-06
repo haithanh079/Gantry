@@ -8,7 +8,7 @@ description: Query Gantry from local AI agents (Claude Code, Cursor, etc.) over 
 
 Gantry exposes a [Model Context Protocol](https://modelcontextprotocol.io) endpoint so local AI agents like Claude Code and Cursor can query the catalog directly — searching entities, reading service details, inspecting relationship graphs, and (with a `developer+` key) creating or updating entities — without a human context-switching to the UI.
 
-The endpoint is served by the Gantry binary itself over HTTP, so there is **nothing to install on developer machines**. Users add a URL and an API key to their agent's MCP config and they're done.
+The endpoint is served by the Gantry binary itself over HTTP, so there is **nothing to install on developer machines**. Cursor and other OAuth clients add the URL and grant access in the Gantry UI. API keys still work for CI and for clients that cannot open a browser.
 
 ## Endpoint
 
@@ -18,13 +18,48 @@ POST /api/v1/mcp
 
 The MCP server uses the **Streamable HTTP** transport. A single URL handles protocol initialization, tool listing, and tool invocation.
 
-Authentication uses the same [API keys](./authentication.md#api-keys) as every other Gantry API. Send the key in the `Authorization` header:
+## Authentication
+
+### OAuth grant (Cursor Agent view)
+
+Gantry is its own OAuth 2.1 authorization server (authorization code + PKCE S256 + dynamic client registration). A client that connects without a token receives `401` and a `WWW-Authenticate` header pointing at the protected-resource metadata. Cursor then opens Gantry in the browser. Sign in if needed, then choose **Grant** or **Deny**. Cursor stores the access token and refresh token; you do not paste a key into `mcp.json`.
+
+```json
+{
+  "mcpServers": {
+    "gantry": {
+      "url": "http://localhost:8080/api/v1/mcp"
+    }
+  }
+}
+```
+
+Set `GANTRY_PUBLIC_URL` to the origin users and Cursor use to reach Gantry (for example `http://localhost:8080` or `https://gantry.example.com`). That origin is the OAuth issuer and the MCP resource URL. Behind a reverse proxy, set it explicitly so the token audience matches.
+
+Discovery documents:
+
+| URL | Purpose |
+|---|---|
+| `GET /.well-known/oauth-protected-resource` | Protected resource metadata |
+| `GET /.well-known/oauth-protected-resource/api/v1/mcp` | Same document at the RFC 9728 path for `/api/v1/mcp` |
+| `GET /.well-known/oauth-authorization-server` | Authorization server metadata |
+| `POST /oauth/register` | Dynamic client registration (public clients only) |
+| `GET /oauth/authorize` | Starts login and the Grant / Deny page |
+| `POST /oauth/token` | Exchanges the code or rotates a refresh token |
+
+Redirect URIs must be `https://` or loopback `http://` (`localhost`, `127.0.0.1`, `::1`) and must match a URI the client registered. Cursor uses `http://localhost:8787/callback` on the desktop and `https://www.cursor.com/agents/mcp/oauth/callback` for web and cloud agents.
+
+Access tokens last one hour, are bound to the MCP resource, and cannot call the rest of the Gantry API. Refresh tokens last 30 days and rotate on use. The granted user's role still applies: viewers can read; `create_service`, `update_service`, `link_service`, `create_entity`, and `update_entity` require **developer role or higher**.
+
+### API keys
+
+API keys keep working for CI and for clients that cannot open a browser. Send the key in the `Authorization` header:
 
 ```
 Authorization: Bearer gantry_<your-key>
 ```
 
-The `/api/v1/mcp` route is protected by the standard authentication middleware — any authenticated Gantry user (or API key) can connect, regardless of role. The permissions of the key's user still apply to every tool call, so the tools return only data that user is allowed to see. Read and schema-discovery tools work for any authenticated key; write tools (`create_entity`, `update_entity`) require **developer role or higher**.
+Any authenticated Gantry user (session, API key, or OAuth token) can connect. The permissions of that user still apply to every tool call.
 
 ## Available Tools
 
@@ -45,6 +80,24 @@ The `/api/v1/mcp` route is protected by the standard authentication middleware �
 |---|---|
 | `create_entity` | Create a new entity. Validated against the kind's JSON Schema. Triggers GitOps sync and writes an audit entry (source `mcp`). |
 | `update_entity` | Update an existing entity. Validated against the kind's JSON Schema. Triggers GitOps sync and writes an audit entry (source `mcp`). |
+
+### Services
+
+These tools are the service-shaped versions of the generic entity tools. They always operate on `kind: Service`.
+
+| Tool | Purpose |
+|---|---|
+| `create_service` | Create a service from `name` plus optional `namespace`, `title`, `description`, `owner`, `type`, `lifecycle`, `repoUrl`, and `tags`. |
+| `get_service` | Return one service by `name` (and optional `namespace`). |
+| `update_service` | Partial update. Only fields you send are changed. |
+| `link_service` | Add or remove a relationship or a URL without replacing the rest of the service. |
+
+`link_service` takes `target: relation` or `target: url` and `op: add` or `op: remove`.
+
+- **relation** — `relation` is `dependsOn`, `providesApi`, `consumesApi`, `deployedIn`, or `owner`. Pass `kind` and `targetName` (`owner` sets `metadata.owner` from `targetName`; use kind `Team`). `providesApi` / `consumesApi` expect an API name.
+- **url** — pass `title`, `url`, and an optional `icon` (`dashboard`, `docs`, `runbook`, `github`, `slack`, `alert`, `monitor`, `ci`, `other`).
+
+`add` is idempotent. `remove` does nothing if the link is already absent. Adding a link does not delete other spec fields.
 
 `delete_entity` and `Flow`-kind writes are **not currently exposed over MCP**; use the REST API or UI for those.
 

@@ -156,18 +156,27 @@ func authenticateToken(r *http.Request, authSvc *auth.Service, database *db.DB, 
 	if err != nil {
 		return nil, "", `{"error":"invalid or expired token"}`
 	}
-
-	effectiveRole := claims.Role
-	if claims.UserID != "" {
-		groups, err := database.ListUserGroups(r.Context(), claims.UserID)
-		if err == nil && len(groups) > 0 {
-			groupRoles := make([]string, len(groups))
-			for i, g := range groups {
-				groupRoles[i] = g.Role
-			}
-			effectiveRole = auth.EffectiveRole(claims.Role, groupRoles)
-		}
+	// MCP OAuth access tokens are bound to the MCP resource and must not
+	// authenticate the REST API or the browser session.
+	if claims.TokenUse == auth.MCPTokenUse {
+		return nil, "", `{"error":"invalid or expired token"}`
 	}
 
-	return claims, effectiveRole, ""
+	return claims, effectiveRoleForClaims(r.Context(), database, claims), ""
+}
+
+func effectiveRoleForClaims(ctx context.Context, database *db.DB, claims *auth.Claims) string {
+	effectiveRole := claims.Role
+	if claims.UserID == "" {
+		return effectiveRole
+	}
+	groups, err := database.ListUserGroups(ctx, claims.UserID)
+	if err == nil && len(groups) > 0 {
+		groupRoles := make([]string, len(groups))
+		for i, g := range groups {
+			groupRoles[i] = g.Role
+		}
+		effectiveRole = auth.EffectiveRole(claims.Role, groupRoles)
+	}
+	return effectiveRole
 }

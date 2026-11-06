@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,6 +26,7 @@ type FileConfig struct {
 	JWTSecret     string `yaml:"jwtSecret"`
 	DataDir       string `yaml:"dataDir"`
 	EncryptionKey string `yaml:"encryptionKey"`
+	PublicURL     string `yaml:"publicUrl"`
 }
 
 // loadFileConfig reads a YAML config file and returns a FileConfig.
@@ -79,22 +81,27 @@ func applyFileConfig(cfg *Config, fc *FileConfig) {
 	if fc.EncryptionKey != "" {
 		cfg.EncryptionKey = fc.EncryptionKey
 	}
+	if fc.PublicURL != "" {
+		cfg.PublicURL = fc.PublicURL
+	}
 }
 
 // Config holds all Gantry configuration.
 type Config struct {
-	Port               int    // HTTP listen port
-	DBType             string // "sqlite" or "postgres"
-	DBDSN              string // connection string or file path
-	DevMode            bool   // development mode (verbose logging, CORS *, etc.)
-	AdminPassword      string // initial admin password (only used on first run)
-	JWTSecret          string // secret for signing JWT tokens
-	JWTSecretExplicit  bool   // true when JWTSecret was set via env/file/flag (not auto-generated)
-	DataDir            string // directory for SQLite database and other data
-	EncryptionKey      string // key for AES-256-GCM encryption of DB secrets (GANTRY_ENCRYPTION_KEY)
-	InsecureAllow      bool   // skip production security validation (GANTRY_INSECURE_ALLOW)
-	MetricsToken       string // optional bearer token for /metrics (GANTRY_METRICS_TOKEN)
-	DevOrigins         []string // allowed CORS origins in dev mode (GANTRY_DEV_ORIGINS)
+	Port              int      // HTTP listen port
+	DBType            string   // "sqlite" or "postgres"
+	DBDSN             string   // connection string or file path
+	DevMode           bool     // development mode (verbose logging, CORS *, etc.)
+	AdminPassword     string   // initial admin password (only used on first run)
+	JWTSecret         string   // secret for signing JWT tokens
+	JWTSecretExplicit bool     // true when JWTSecret was set via env/file/flag (not auto-generated)
+	DataDir           string   // directory for SQLite database and other data
+	EncryptionKey     string   // key for AES-256-GCM encryption of DB secrets (GANTRY_ENCRYPTION_KEY)
+	InsecureAllow     bool     // skip production security validation (GANTRY_INSECURE_ALLOW)
+	MetricsToken      string   // optional bearer token for /metrics (GANTRY_METRICS_TOKEN)
+	DevOrigins        []string // allowed CORS origins in dev mode (GANTRY_DEV_ORIGINS)
+	PublicURL         string   // external origin for OAuth issuer and MCP resource URLs
+	publicURLErr      error
 }
 
 // Default returns a Config with sensible defaults for local development.
@@ -188,6 +195,10 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("GANTRY_DEV_ORIGINS"); v != "" {
 		cfg.DevOrigins = parseDevOrigins(v)
 	}
+
+	if v := os.Getenv("GANTRY_PUBLIC_URL"); v != "" {
+		cfg.PublicURL = v
+	}
 }
 
 func parseDevOrigins(raw string) []string {
@@ -217,6 +228,39 @@ func (c *Config) normalize() {
 	if c.JWTSecret == "" {
 		c.JWTSecret = generateRandomHex(32)
 	}
+
+	if c.PublicURL != "" {
+		normalized, err := NormalizePublicURL(c.PublicURL)
+		if err != nil {
+			c.publicURLErr = err
+		} else {
+			c.PublicURL = normalized
+		}
+	}
+}
+
+// PublicURLError reports an invalid GANTRY_PUBLIC_URL / publicUrl value.
+func (c *Config) PublicURLError() error {
+	return c.publicURLErr
+}
+
+// NormalizePublicURL checks that raw is an absolute http(s) origin without a path.
+func NormalizePublicURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
+		return "", fmt.Errorf("GANTRY_PUBLIC_URL must be an absolute http(s) origin")
+	}
+	if u.Path != "" && u.Path != "/" {
+		return "", fmt.Errorf("GANTRY_PUBLIC_URL must not include a path")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("GANTRY_PUBLIC_URL must not include a query or fragment")
+	}
+	u.Path = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+	return strings.TrimRight(u.String(), "/"), nil
 }
 
 // DSN returns the database connection string appropriate for the configured driver.

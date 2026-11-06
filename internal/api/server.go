@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -45,30 +46,17 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 	r.Use(chimiddleware.Recoverer)
 	r.Use(middleware.RequestLogger)
 
-	// CORS middleware.
+	// CORS middleware. OAuth discovery and token endpoints accept any origin so
+	// MCP clients can register and exchange tokens. Other routes keep the
+	// configured allow-list (dev origins, or same-origin in production).
+	allowedOrigins := []string{}
 	if cfg.DevMode {
-		devOrigins := cfg.DevOrigins
-		if len(devOrigins) == 0 {
-			devOrigins = config.DefaultDevOrigins()
+		allowedOrigins = cfg.DevOrigins
+		if len(allowedOrigins) == 0 {
+			allowedOrigins = config.DefaultDevOrigins()
 		}
-		r.Use(cors.Handler(cors.Options{
-			AllowedOrigins:   devOrigins,
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version"},
-			ExposedHeaders:   []string{"Link", "Mcp-Session-Id"},
-			AllowCredentials: true,
-			MaxAge:           300,
-		}))
-	} else {
-		r.Use(cors.Handler(cors.Options{
-			AllowedOrigins:   []string{""}, // same-origin only
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version"},
-			ExposedHeaders:   []string{"Link", "Mcp-Session-Id"},
-			AllowCredentials: true,
-			MaxAge:           300,
-		}))
 	}
+	r.Use(cors.Handler(corsOptions(allowedOrigins)))
 
 	// Build handlers.
 	h := &handlers.Handlers{
@@ -80,8 +68,20 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 		Dispatcher: dispatcher.New(database, eventBus),
 		DataDir:    cfg.DataDir,
 		Version:    version,
+		PublicURL:  cfg.PublicURL,
 	}
 	h.InitTeamsNotifier()
+
+	// OAuth discovery for MCP clients. Registered before the SPA fallback.
+	r.Get("/.well-known/oauth-protected-resource", h.OAuthProtectedResource)
+	r.Get("/.well-known/oauth-protected-resource/api/v1/mcp", h.OAuthProtectedResource)
+	r.Get("/.well-known/oauth-authorization-server", h.OAuthAuthorizationServer)
+	r.Options("/.well-known/oauth-authorization-server", h.OAuthOptions)
+	r.Post("/oauth/register", h.OAuthRegister)
+	r.Options("/oauth/register", h.OAuthOptions)
+	r.Get("/oauth/authorize", h.OAuthAuthorize)
+	r.Post("/oauth/token", h.OAuthToken)
+	r.Options("/oauth/token", h.OAuthOptions)
 
 	// Health check routes (public).
 	r.Get("/healthz", h.Healthz)
@@ -134,6 +134,10 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 			protected.Post("/auth/apikeys", h.CreateAPIKey)
 			protected.Delete("/auth/apikeys/{id}", h.RevokeAPIKey)
 
+			// MCP OAuth consent. The browser is already logged in.
+			protected.Get("/oauth/pending", h.OAuthPending)
+			protected.Post("/oauth/consent", h.OAuthConsent)
+
 			// Groups. Read: platform-engineer+. Write: admin only.
 			protected.With(middleware.RequireRole("platform-engineer")).Get("/groups", h.ListGroups)
 			protected.With(middleware.RequireRole("admin")).Post("/groups", h.CreateGroup)
@@ -173,13 +177,6 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 
 			// Relationship graph.
 			protected.Get("/graph/{kind}/{name}", h.GetEntityGraph)
-
-			// MCP endpoint for local AI agents. Streamable HTTP transport handles
-			// POST (client messages), GET (optional SSE streaming), and DELETE
-			// (session close) on a single path, so Handle covers all methods.
-			mcpHandler := gantrymcp.NewHandler(h)
-			protected.Handle("/mcp", mcpHandler)
-			protected.Handle("/mcp/*", mcpHandler)
 
 			// Schemas.
 			protected.Get("/schemas", h.ListSchemas)
@@ -257,6 +254,13 @@ func NewServer(cfg *config.Config, database *db.DB, authSvc *auth.Service, event
 			protected.With(middleware.RequireRole("platform-engineer")).Post("/plugins/{name}/sync", h.SyncPlugin)
 		})
 
+		// MCP is outside RequireAuth so a missing token can return the OAuth
+		// challenge. API keys, session JWTs, and MCP access tokens are accepted.
+		mcpHandler := gantrymcp.NewHandler(h)
+		mcpAuth := middleware.RequireMCPAuth(authSvc, database, cfg.PublicURL)
+		api.Handle("/mcp", mcpAuth(mcpHandler))
+		api.Handle("/mcp/*", mcpAuth(mcpHandler))
+
 		// WebSocket. Browsers authenticate via same-origin session cookies; other
 		// clients can still use Authorization headers.
 		api.With(middleware.RequireWebSocketAuth(authSvc, database)).Get("/ws", wsHub.ServeWS)
@@ -294,6 +298,44 @@ func (s *Server) Router() http.Handler {
 func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.port)
 	return http.ListenAndServe(addr, s.handler)
+}
+
+func corsOptions(allowed []string) cors.Options {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, origin := range allowed {
+		origin = strings.ToLower(strings.TrimSpace(origin))
+		if origin == "" || origin == "*" {
+			continue
+		}
+		allowedSet[origin] = struct{}{}
+	}
+	return cors.Options{
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			if isOAuthCORSPath(r.URL.Path) {
+				return true
+			}
+			_, ok := allowedSet[strings.ToLower(origin)]
+			return ok
+		},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version"},
+		ExposedHeaders:   []string{"Link", "Mcp-Session-Id"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}
+}
+
+func isOAuthCORSPath(path string) bool {
+	switch path {
+	case "/.well-known/oauth-protected-resource",
+		"/.well-known/oauth-protected-resource/api/v1/mcp",
+		"/.well-known/oauth-authorization-server",
+		"/oauth/register",
+		"/oauth/token":
+		return true
+	default:
+		return false
+	}
 }
 
 // spaFileServer returns an http.Handler that serves static files from root.

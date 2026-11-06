@@ -71,7 +71,18 @@ type Claims struct {
 	Username string   `json:"username"`
 	Role     string   `json:"role"`
 	Groups   []string `json:"groups,omitempty"`
+	// TokenUse is "mcp" for OAuth access tokens issued to MCP clients.
+	// Session JWTs leave it empty and must not be accepted as MCP access tokens
+	// by the REST API.
+	TokenUse string `json:"token_use,omitempty"`
+	Scope    string `json:"scope,omitempty"`
 }
+
+// MCPTokenUse marks a JWT as an MCP OAuth access token.
+const MCPTokenUse = "mcp"
+
+// MCPScope is the single scope granted to MCP OAuth clients.
+const MCPScope = "mcp"
 
 // Service provides authentication operations including password hashing
 // and JWT token generation/validation.
@@ -152,4 +163,46 @@ func (s *Service) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+// GenerateMCPAccessToken signs a short-lived access token bound to one MCP resource.
+// issuer is the Gantry public origin. audience is the MCP resource URL.
+func (s *Service) GenerateMCPAccessToken(user *User, issuer, audience string, ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		return "", errors.New("auth: mcp token ttl must be positive")
+	}
+	now := time.Now().UTC()
+	claims := Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   user.ID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+			Issuer:    issuer,
+			Audience:  jwt.ClaimStrings{audience},
+		},
+		UserID:   user.ID,
+		Username: user.Username,
+		Role:     user.Role,
+		TokenUse: MCPTokenUse,
+		Scope:    MCPScope,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", fmt.Errorf("auth: generate mcp token: %w", err)
+	}
+	return signed, nil
+}
+
+// HasAudience reports whether the token was issued for aud.
+func (c *Claims) HasAudience(aud string) bool {
+	if c == nil {
+		return false
+	}
+	for _, candidate := range c.Audience {
+		if candidate == aud {
+			return true
+		}
+	}
+	return false
 }

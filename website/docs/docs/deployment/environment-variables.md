@@ -42,6 +42,7 @@ GANTRY_DB=postgresql://user:password@host:5432/dbname
 | `GANTRY_ADMIN_PASSWORD` | `changeme` | Initial admin user password (set on first run) |
 | `GANTRY_JWT_SECRET` | *(auto-generated)* | HMAC-SHA256 secret for signing JWT tokens |
 | `GANTRY_ENCRYPTION_KEY` | *(auto-generated)* | AES-256-GCM key for encrypting plugin configs |
+| `GANTRY_PUBLIC_URL` | *(request host)* | Public http(s) origin for MCP OAuth. Example: `https://gantry.example.com`. Required behind a reverse proxy so Cursor's grant redirect and token audience stay stable. |
 
 :::danger Change These in Production
 Always set `GANTRY_ADMIN_PASSWORD`, `GANTRY_JWT_SECRET`, and `GANTRY_ENCRYPTION_KEY` to stable, random values before exposing Gantry to any network.

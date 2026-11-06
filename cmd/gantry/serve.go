@@ -84,6 +84,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if cfg.DevMode && len(cfg.DevOrigins) == 0 {
 		cfg.DevOrigins = config.DefaultDevOrigins()
 	}
+	if err := cfg.PublicURLError(); err != nil {
+		return err
+	}
 
 	tlsCert, _ := cmd.Flags().GetString("tls-cert")
 	tlsKey, _ := cmd.Flags().GetString("tls-key")

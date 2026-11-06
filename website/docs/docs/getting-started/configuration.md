@@ -26,6 +26,7 @@ CLI flags  >  Environment variables  >  gantry.yaml  >  Built-in defaults
 | `GANTRY_INSECURE_ALLOW` | `false` | Skip production security validation (not for real deployments) |
 | `GANTRY_METRICS_TOKEN` | *(unset)* | Bearer token required to scrape `/metrics` when set |
 | `GANTRY_DEV_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed CORS origins when `GANTRY_DEV=true` |
+| `GANTRY_PUBLIC_URL` | *(request host)* | Public origin used as the OAuth issuer and MCP resource URL, for example `http://localhost:8080`. Set this behind a reverse proxy. |
 
 ### Example
 
@@ -51,6 +52,7 @@ adminPassword: changeme
 jwtSecret: ""               # auto-generated if empty
 dataDir: ./data
 encryptionKey: ""           # auto-generated if empty
+publicUrl: ""               # OAuth issuer; defaults to the request host
 ```
 
 ```bash

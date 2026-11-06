@@ -36,6 +36,7 @@ func newTestServerEnv(t *testing.T) *testServerEnv {
 		JWTSecret:     "test-secret",
 		DataDir:       dataDir,
 		EncryptionKey: "test-encryption-key",
+		PublicURL:     "http://localhost:8080",
 	}
 
 	database, err := db.New(cfg)

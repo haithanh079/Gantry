@@ -16,6 +16,7 @@ import (
 	"github.com/go2engle/gantry/internal/entity"
 	"github.com/go2engle/gantry/internal/events"
 	"github.com/go2engle/gantry/internal/gitops"
+	"github.com/go2engle/gantry/internal/oauth"
 	"github.com/go2engle/gantry/internal/search"
 )
 
@@ -30,6 +31,7 @@ type Handlers struct {
 	GitOps     *gitops.Service
 	DataDir    string // root data directory, used for GitOps repo storage
 	Version    string // build-time version string
+	PublicURL  string // external origin for OAuth; empty derives from the request
 
 	teamsNotifierOnce sync.Once
 	teamsCfgMu        sync.RWMutex
@@ -85,6 +87,10 @@ func clearSessionCookie(r *http.Request) *http.Cookie {
 		SameSite: http.SameSiteLaxMode,
 		Secure:   isHTTPSRequest(r),
 	}
+}
+
+func (h *Handlers) publicBase(r *http.Request) string {
+	return oauth.PublicBase(r, h.PublicURL)
 }
 
 func requestOrigin(r *http.Request) string {

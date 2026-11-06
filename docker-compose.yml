@@ -11,7 +11,8 @@ services:
       GANTRY_DATA_DIR: /data
       GANTRY_ADMIN_PASSWORD: ${GANTRY_ADMIN_PASSWORD:-changeme}
       GANTRY_JWT_SECRET: ${GANTRY_JWT_SECRET:-}
-      GANTRY_DEV: ${GANTRY_DEV:-false}
+      GANTRY_DEV: ${GANTRY_DEV:-true}
+      GANTRY_PUBLIC_URL: ${GANTRY_PUBLIC_URL:-http://localhost:8080}
     healthcheck:
       test: ["CMD", "/gantry", "version"]
       interval: 30s

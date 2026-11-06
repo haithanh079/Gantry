@@ -1,11 +1,13 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import Sidebar from './components/Sidebar';
 import CommandPalette from './components/CommandPalette';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
+import OAuthConsent from './pages/OAuthConsent';
+import { OAUTH_NEXT_STORAGE_KEY, safeOAuthNext } from './lib/oauth';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Catalog = lazy(() => import('./pages/Catalog'));
@@ -101,10 +103,38 @@ function LoadingScreen() {
   );
 }
 
+function OAuthResume() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const next = safeOAuthNext(sessionStorage.getItem(OAUTH_NEXT_STORAGE_KEY));
+    if (!next) return;
+    sessionStorage.removeItem(OAUTH_NEXT_STORAGE_KEY);
+    const here = window.location.pathname + window.location.search;
+    if (here !== next) navigate(next, { replace: true });
+  }, [navigate]);
+
+  return null;
+}
+
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <LoadingScreen />;
+  if (isAuthenticated && location.pathname === '/oauth/consent') {
+    return (
+      <>
+        <OAuthResume />
+        <OAuthConsent />
+      </>
+    );
+  }
   if (!isAuthenticated) return <Login />;
-  return <AuthenticatedLayout />;
+  return (
+    <>
+      <OAuthResume />
+      <AuthenticatedLayout />
+    </>
+  );
 }

@@ -246,6 +246,52 @@ func allMigrations(dbType string) []string {
 			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_by TEXT
 		)`,
+
+		// ------------------------------------------------------------------
+		// OAuth 2.1 authorization server (MCP dynamic client registration)
+		// ------------------------------------------------------------------
+		`CREATE TABLE IF NOT EXISTS oauth_clients (
+			id            TEXT PRIMARY KEY,
+			name          TEXT NOT NULL DEFAULT '',
+			redirect_uris TEXT NOT NULL,
+			created_at    TIMESTAMP NOT NULL
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS oauth_pending (
+			id             TEXT PRIMARY KEY,
+			client_id      TEXT NOT NULL,
+			redirect_uri   TEXT NOT NULL,
+			code_challenge TEXT NOT NULL,
+			resource       TEXT NOT NULL,
+			scope          TEXT NOT NULL,
+			state          TEXT NOT NULL DEFAULT '',
+			expires_at     TIMESTAMP NOT NULL,
+			created_at     TIMESTAMP NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_oauth_pending_expires ON oauth_pending(expires_at)`,
+
+		`CREATE TABLE IF NOT EXISTS oauth_auth_codes (
+			code_hash      TEXT PRIMARY KEY,
+			client_id      TEXT NOT NULL,
+			user_id        TEXT NOT NULL,
+			redirect_uri   TEXT NOT NULL,
+			code_challenge TEXT NOT NULL,
+			resource       TEXT NOT NULL,
+			scope          TEXT NOT NULL,
+			expires_at     TIMESTAMP NOT NULL,
+			used           INTEGER NOT NULL DEFAULT 0
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
+			token_hash TEXT PRIMARY KEY,
+			client_id  TEXT NOT NULL,
+			user_id    TEXT NOT NULL,
+			scope      TEXT NOT NULL,
+			resource   TEXT NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			revoked    INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_oauth_refresh_client ON oauth_refresh_tokens(client_id)`,
 	}
 
 	// ------------------------------------------------------------------

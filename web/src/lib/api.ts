@@ -53,6 +53,12 @@ export const api = {
 
   getMe: () => request<User>('GET', '/auth/me'),
 
+  getOAuthPending: (rid: string) =>
+    request<{ rid: string; clientId: string; clientName: string; scope: string; redirectURI: string }>('GET', `/oauth/pending?rid=${encodeURIComponent(rid)}`),
+
+  submitOAuthConsent: (rid: string, decision: 'grant' | 'deny') =>
+    request<{ redirectUrl: string }>('POST', '/oauth/consent', { rid, decision }),
+
   logout: () => request<void>('POST', '/auth/logout'),
 
   listEntities: (kind?: string) =>

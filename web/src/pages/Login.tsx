@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ChevronDown, ChevronUp, Github } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { api } from '../lib/api';
 import ThemeToggle from '../components/ThemeToggle';
+import { OAUTH_NEXT_STORAGE_KEY, safeOAuthNext } from '../lib/oauth';
 
 function MicrosoftLogo() {
   return (
@@ -16,8 +18,15 @@ function MicrosoftLogo() {
   );
 }
 
+function oauthNextFromLocation(): string {
+  const params = new URLSearchParams(window.location.search);
+  return safeOAuthNext(params.get('next'))
+    || safeOAuthNext(window.location.pathname + window.location.search);
+}
+
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +45,10 @@ export default function Login() {
     ]).finally(() => setSSOConfigLoading(false));
 
     api.getVersion().then((v) => setAppVersion(v.version)).catch(() => {});
+
+    const next = oauthNextFromLocation();
+    if (next) sessionStorage.setItem(OAUTH_NEXT_STORAGE_KEY, next);
+    else sessionStorage.removeItem(OAUTH_NEXT_STORAGE_KEY);
 
     // Check for SSO error in URL params (e.g. redirected back from OAuth callback).
     const params = new URLSearchParams(window.location.search);
@@ -56,6 +69,9 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
+      const next = oauthNextFromLocation() || safeOAuthNext(sessionStorage.getItem(OAUTH_NEXT_STORAGE_KEY));
+      sessionStorage.removeItem(OAUTH_NEXT_STORAGE_KEY);
+      if (next) navigate(next, { replace: true });
     } catch (err: any) {
       setShowLocalLogin(true);
       setError(err.message || 'Login failed. Please check your credentials.');

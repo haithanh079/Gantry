@@ -1,9 +1,9 @@
-// Package mcp exposes Gantry's read-only API surface over the Model Context
-// Protocol so local AI agents (Claude Code, Cursor, etc.) can answer questions
-// about the catalog without context-switching to the UI.
+// Package mcp exposes Gantry's catalog over the Model Context Protocol so local
+// AI agents (Cursor, Claude Code, etc.) can read and update services.
 //
-// The transport is Streamable HTTP mounted inside the existing authenticated
-// API group, so agents authenticate with the same API keys as any other client.
+// The transport is Streamable HTTP. Clients authenticate with an API key, a
+// browser session, or an MCP OAuth access token obtained by granting access in
+// the Gantry UI.
 package mcp
 
 import (
